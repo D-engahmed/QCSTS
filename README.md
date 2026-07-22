@@ -68,5 +68,5 @@ Contributions should follow existing application structure, maintain code qualit
 
 ## License
 
-This project is provided under the license terms defined in `LICENSE.md`.
+This project is provided under the license terms defined in [LICENSE.md](LICENSE.md).
 
