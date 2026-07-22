@@ -21,7 +21,7 @@ GitHub Repository:
 **https://github.com/D-engahmed**
 
 LinkedIn:
-**https://www.linkedin.com/in/ahmed-elkossairy-96b34a26a**
+**https://www.linkedin.com/in/ahmed-elkossairy**
 
 For licensing, partnerships, enterprise deployment, or commercial inquiries:
 
