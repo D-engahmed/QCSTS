@@ -1,0 +1,47 @@
+# ── Virtual Environment ──
+venv/
+env/
+.venv/
+
+# ── Environment secrets — NEVER commit this ──
+.env
+
+# ── Python cache ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Django ──
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+
+# ── Coverage reports ──
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.xml
+
+# ── Docker volumes ──
+postgres_data/
+redis_data/
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Build artifacts ──
+dist/
+build/
+*.egg-info/

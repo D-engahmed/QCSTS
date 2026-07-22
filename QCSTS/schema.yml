@@ -1,0 +1,1859 @@
+openapi: 3.0.3
+info:
+  title: CQSTS API
+  version: 1.0.0
+  description: QC Stability Tracking System — Backend API
+paths:
+  /api/schema/:
+    get:
+      operationId: api_schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/audit/:
+    get:
+      operationId: api_v1_audit_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/v1/audit/{id}/:
+    get:
+      operationId: api_v1_audit_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/v1/auth/change-password/:
+    post:
+      operationId: api_v1_auth_change_password_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePassword'
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: api_v1_auth_login_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Login'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: api_v1_auth_logout_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Login'
+          description: ''
+  /api/v1/auth/me/:
+    get:
+      operationId: api_v1_auth_me_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/token/refresh/:
+    post:
+      operationId: api_v1_auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/users/:
+    get:
+      operationId: api_v1_auth_users_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    post:
+      operationId: api_v1_auth_users_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/users/{id}/:
+    get:
+      operationId: api_v1_auth_users_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: api_v1_auth_users_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: api_v1_auth_users_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/batches/:
+    get:
+      operationId: api_v1_batches_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+          description: ''
+    post:
+      operationId: api_v1_batches_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Batch'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Batch'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Batch'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+          description: ''
+  /api/v1/batches/{id}/:
+    get:
+      operationId: api_v1_batches_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+          description: ''
+    patch:
+      operationId: api_v1_batches_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBatch'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBatch'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBatch'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+          description: ''
+  /api/v1/chamber/:
+    get:
+      operationId: api_v1_chamber_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+          description: ''
+  /api/v1/chamber/locations/{id}/:
+    get:
+      operationId: api_v1_chamber_locations_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationHistory'
+          description: ''
+  /api/v1/chamber/move/:
+    post:
+      operationId: api_v1_chamber_move_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeBatchLocation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangeBatchLocation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangeBatchLocation'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeBatchLocation'
+          description: ''
+  /api/v1/chamber/pulls/:
+    get:
+      operationId: api_v1_chamber_pulls_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SamplePull'
+          description: ''
+    post:
+      operationId: api_v1_chamber_pulls_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SamplePull'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SamplePull'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SamplePull'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SamplePull'
+          description: ''
+  /api/v1/products/:
+    get:
+      operationId: api_v1_products_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+    post:
+      operationId: api_v1_products_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Product'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Product'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+  /api/v1/products/{id}/:
+    get:
+      operationId: api_v1_products_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+    patch:
+      operationId: api_v1_products_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProduct'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProduct'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProduct'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+  /api/v1/products/monographs/:
+    get:
+      operationId: api_v1_products_monographs_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monograph'
+          description: ''
+    post:
+      operationId: api_v1_products_monographs_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Monograph'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Monograph'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Monograph'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monograph'
+          description: ''
+  /api/v1/products/monographs/{id}/:
+    get:
+      operationId: api_v1_products_monographs_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monograph'
+          description: ''
+    patch:
+      operationId: api_v1_products_monographs_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMonograph'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMonograph'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMonograph'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monograph'
+          description: ''
+  /api/v1/products/monographs/{id}/approve/:
+    post:
+      operationId: api_v1_products_monographs_approve_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Monograph'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Monograph'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Monograph'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monograph'
+          description: ''
+  /api/v1/products/monographs/{id}/tests/:
+    get:
+      operationId: api_v1_products_monographs_tests_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonographTest'
+          description: ''
+    post:
+      operationId: api_v1_products_monographs_tests_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonographTest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MonographTest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MonographTest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonographTest'
+          description: ''
+  /api/v1/reports/dashboard/:
+    get:
+      operationId: api_v1_reports_dashboard_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/results/:
+    get:
+      operationId: api_v1_results_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+          description: ''
+    post:
+      operationId: api_v1_results_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestResult'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TestResult'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TestResult'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+          description: ''
+  /api/v1/results/signature/verify/:
+    post:
+      operationId: api_v1_results_signature_verify_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestResult'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TestResult'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TestResult'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResult'
+          description: ''
+  /api/v1/test-points/:
+    get:
+      operationId: api_v1_test_points_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestPoint'
+          description: ''
+  /api/v1/test-points/{id}/:
+    get:
+      operationId: api_v1_test_points_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestPoint'
+          description: ''
+components:
+  schemas:
+    ActionEnum:
+      enum:
+      - CREATE
+      - UPDATE
+      - DELETE
+      - LOGIN
+      - LOGOUT
+      - SIGN
+      - APPROVE
+      - REJECT
+      type: string
+      description: |-
+        * `CREATE` - Create
+        * `UPDATE` - Update
+        * `DELETE` - Delete
+        * `LOGIN` - Login
+        * `LOGOUT` - Logout
+        * `SIGN` - Electronic Signature
+        * `APPROVE` - Approve
+        * `REJECT` - Reject
+    AuditLog:
+      type: object
+      description: |-
+        Read-only serializer for displaying audit log entries.
+        No create/update operations — audit logs are written
+        exclusively by AuditService, never through the API.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        performed_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        performed_by_name:
+          type: string
+          readOnly: true
+        action:
+          allOf:
+          - $ref: '#/components/schemas/ActionEnum'
+          readOnly: true
+        model_name:
+          type: string
+          readOnly: true
+          description: Name of the model that was changed. e.g. Batch, TestResult
+        object_id:
+          type: string
+          readOnly: true
+          description: UUID of the record that was changed.
+        object_repr:
+          type: string
+          readOnly: true
+          description: Human-readable representation of the record at time of change.
+        old_value:
+          readOnly: true
+          nullable: true
+          description: State of the record before the change.
+        new_value:
+          readOnly: true
+          nullable: true
+          description: State of the record after the change.
+        ip_address:
+          type: string
+          readOnly: true
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Exact server time when this action occurred. Never editable.
+        notes:
+          type: string
+          readOnly: true
+          description: Optional context about why this change was made.
+      required:
+      - action
+      - id
+      - ip_address
+      - model_name
+      - new_value
+      - notes
+      - object_id
+      - object_repr
+      - old_value
+      - performed_by
+      - performed_by_name
+      - timestamp
+    Batch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        product:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+        product_name:
+          type: string
+          readOnly: true
+        batch_number:
+          type: string
+          description: e.g. AMX-2024-001. Must be globally unique.
+          maxLength: 100
+        mfg_date:
+          type: string
+          format: date
+          description: Manufacturing date.
+        expiry_date:
+          type: string
+          format: date
+          description: Expiry date of the batch.
+        incubation_date:
+          type: string
+          format: date
+          description: Date batch was placed in stability chamber. Must be >= mfg_date.
+        study_type:
+          allOf:
+          - $ref: '#/components/schemas/StudyTypeEnum'
+          description: |-
+            ICH study type — determines which test points are generated.
+
+            * `long_term` - Long Study
+            * `accelerated` - Accelerated Study
+        status:
+          allOf:
+          - $ref: '#/components/schemas/BatchStatusEnum'
+          readOnly: true
+        shelf:
+          type: string
+          maxLength: 50
+        rack:
+          type: string
+          maxLength: 50
+        position:
+          type: string
+          maxLength: 50
+        location:
+          type: string
+          readOnly: true
+        qty_placed:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: Total quantity placed in chamber.
+        qty_remaining:
+          type: integer
+          readOnly: true
+          description: Quantity remaining after sample pulls.
+        test_points:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestPoint'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp when this record was created. Set by server, never
+            editable.
+      required:
+      - batch_number
+      - created_at
+      - expiry_date
+      - id
+      - incubation_date
+      - location
+      - mfg_date
+      - position
+      - product
+      - product_name
+      - qty_placed
+      - qty_remaining
+      - rack
+      - shelf
+      - status
+      - study_type
+      - test_points
+    BatchStatusEnum:
+      enum:
+      - active
+      - complete
+      - failed
+      - inactive
+      type: string
+      description: |-
+        * `active` - Active
+        * `complete` - Complete
+        * `failed` - Failed
+        * `inactive` - Inactive
+    ChangeBatchLocation:
+      type: object
+      description: Used when an analyst moves a batch to a new location in the chamber.
+      properties:
+        batch:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+        new_shelf:
+          type: string
+          maxLength: 50
+        new_rack:
+          type: string
+          maxLength: 50
+        new_position:
+          type: string
+          maxLength: 50
+        reason:
+          type: string
+      required:
+      - batch
+      - new_position
+      - new_rack
+      - new_shelf
+    ChangePassword:
+      type: object
+      description: |-
+        Used when a user changes their own password.
+        Requires current password for verification.
+      properties:
+        current_password:
+          type: string
+          writeOnly: true
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 12
+      required:
+      - current_password
+      - new_password
+    DosageFormEnum:
+      enum:
+      - tablet
+      - capsule
+      - syrup
+      - injection
+      - cream
+      - ointment
+      - gel
+      - suppository
+      - suspension
+      - solution
+      type: string
+      description: |-
+        * `tablet` - Tablet
+        * `capsule` - Capsule
+        * `syrup` - Syrup
+        * `injection` - Injection
+        * `cream` - Cream
+        * `ointment` - Ointment
+        * `gel` - Gel
+        * `suppository` - Suppository
+        * `suspension` - Suspension
+        * `solution` - Solution
+    LocationHistory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        batch:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+        batch_number:
+          type: string
+          readOnly: true
+        old_shelf:
+          type: string
+          readOnly: true
+        old_rack:
+          type: string
+          readOnly: true
+        old_position:
+          type: string
+          readOnly: true
+        new_shelf:
+          type: string
+          maxLength: 50
+        new_rack:
+          type: string
+          maxLength: 50
+        new_position:
+          type: string
+          maxLength: 50
+        changed_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp when this record was created. Set by server, never
+            editable.
+      required:
+      - batch
+      - batch_number
+      - changed_by
+      - created_at
+      - id
+      - new_position
+      - new_rack
+      - new_shelf
+      - old_position
+      - old_rack
+      - old_shelf
+    Login:
+      type: object
+      description: |-
+        Validates login credentials.
+        Returns the user object if valid — the view handles token generation.
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+    Monograph:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        name:
+          type: string
+          maxLength: 255
+        version:
+          type: string
+          maxLength: 50
+        effective_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/MonographStatusEnum'
+        approved_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        approved_by_name:
+          type: string
+          readOnly: true
+        approved_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        tests:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonographTest'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp when this record was created. Set by server, never
+            editable.
+      required:
+      - approved_at
+      - approved_by
+      - approved_by_name
+      - created_at
+      - effective_date
+      - id
+      - name
+      - tests
+      - version
+    MonographStatusEnum:
+      enum:
+      - draft
+      - approved
+      - inactive
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `approved` - Approved
+        * `inactive` - Inactive
+    MonographTest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        name:
+          type: string
+          description: e.g. Assay, pH, Dissolution
+          maxLength: 255
+        method:
+          type: string
+          description: e.g. USP <711>, HPLC Method A
+          maxLength: 255
+        specification:
+          type: string
+          description: e.g. 98.0% - 102.0%, NLT 75% in 30 min
+          maxLength: 500
+        unit:
+          type: string
+          description: e.g. %, mg, pH units
+          maxLength: 50
+        sequence:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: Display order of this test in the monograph
+      required:
+      - id
+      - method
+      - name
+      - specification
+    PassFailEnum:
+      enum:
+      - pass
+      - fail
+      - pending
+      type: string
+      description: |-
+        * `pass` - Pass
+        * `fail` - Fail
+        * `pending` - Pending
+    PatchedBatch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        product:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+        product_name:
+          type: string
+          readOnly: true
+        batch_number:
+          type: string
+          description: e.g. AMX-2024-001. Must be globally unique.
+          maxLength: 100
+        mfg_date:
+          type: string
+          format: date
+          description: Manufacturing date.
+        expiry_date:
+          type: string
+          format: date
+          description: Expiry date of the batch.
+        incubation_date:
+          type: string
+          format: date
+          description: Date batch was placed in stability chamber. Must be >= mfg_date.
+        study_type:
+          allOf:
+          - $ref: '#/components/schemas/StudyTypeEnum'
+          description: |-
+            ICH study type — determines which test points are generated.
+
+            * `long_term` - Long Study
+            * `accelerated` - Accelerated Study
+        status:
+          allOf:
+          - $ref: '#/components/schemas/BatchStatusEnum'
+          readOnly: true
+        shelf:
+          type: string
+          maxLength: 50
+        rack:
+          type: string
+          maxLength: 50
+        position:
+          type: string
+          maxLength: 50
+        location:
+          type: string
+          readOnly: true
+        qty_placed:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: Total quantity placed in chamber.
+        qty_remaining:
+          type: integer
+          readOnly: true
+          description: Quantity remaining after sample pulls.
+        test_points:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestPoint'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp when this record was created. Set by server, never
+            editable.
+    PatchedMonograph:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        name:
+          type: string
+          maxLength: 255
+        version:
+          type: string
+          maxLength: 50
+        effective_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/MonographStatusEnum'
+        approved_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        approved_by_name:
+          type: string
+          readOnly: true
+        approved_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        tests:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonographTest'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp when this record was created. Set by server, never
+            editable.
+    PatchedProduct:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        name:
+          type: string
+          maxLength: 255
+        strength:
+          type: string
+          description: e.g. 500 mg, 250 mg/5 ml
+          maxLength: 100
+        dosage_form:
+          $ref: '#/components/schemas/DosageFormEnum'
+        description:
+          type: string
+        monograph:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+          nullable: true
+        monograph_name:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          description: Soft delete flag. False means logically deleted. Record is
+            never hard-deleted.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp when this record was created. Set by server, never
+            editable.
+    PatchedUser:
+      type: object
+      description: |-
+        Shapes the user object returned to the frontend after login
+        and in user management endpoints.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        full_name:
+          type: string
+          maxLength: 255
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        name:
+          type: string
+          maxLength: 255
+        strength:
+          type: string
+          description: e.g. 500 mg, 250 mg/5 ml
+          maxLength: 100
+        dosage_form:
+          $ref: '#/components/schemas/DosageFormEnum'
+        description:
+          type: string
+        monograph:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+          nullable: true
+        monograph_name:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          description: Soft delete flag. False means logically deleted. Record is
+            never hard-deleted.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp when this record was created. Set by server, never
+            editable.
+      required:
+      - created_at
+      - dosage_form
+      - id
+      - monograph_name
+      - name
+      - strength
+    RoleEnum:
+      enum:
+      - admin
+      - qa_manager
+      - supervisor
+      - analyst
+      type: string
+      description: |-
+        * `admin` - Admin
+        * `qa_manager` - QA Manager
+        * `supervisor` - Supervisor
+        * `analyst` - Analyst
+    SamplePull:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        batch:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+        batch_number:
+          type: string
+          readOnly: true
+        test_point:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+          nullable: true
+        qty_pulled:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          description: Number of units pulled from chamber.
+        pulled_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        pulled_at:
+          type: string
+          format: date-time
+          readOnly: true
+        notes:
+          type: string
+      required:
+      - batch
+      - batch_number
+      - id
+      - pulled_at
+      - pulled_by
+      - qty_pulled
+    StudyTypeEnum:
+      enum:
+      - long_term
+      - accelerated
+      type: string
+      description: |-
+        * `long_term` - Long Study
+        * `accelerated` - Accelerated Study
+    TestPoint:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        month:
+          type: integer
+          readOnly: true
+          description: ICH month number. e.g. 0, 3, 6, 12.
+        scheduled_date:
+          type: string
+          format: date
+          readOnly: true
+          description: Exact date this test point is due.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TestPointStatusEnum'
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: When all results for this test point were submitted.
+      required:
+      - completed_at
+      - id
+      - month
+      - scheduled_date
+      - status
+    TestPointStatusEnum:
+      enum:
+      - pending
+      - overdue
+      - completed
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `overdue` - Overdue
+        * `completed` - Completed
+        * `failed` - Failed
+    TestResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for this record. Auto-generated UUID.
+        test_point:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+        monograph_test:
+          type: string
+          format: uuid
+          description: Unique identifier for this record. Auto-generated UUID.
+        test_name:
+          type: string
+          readOnly: true
+        value:
+          type: string
+          description: The measured value e.g. 99.5, 6.8, 74%
+          maxLength: 255
+        unit:
+          type: string
+          description: Unit of measurement e.g. %, mg, pH units
+          maxLength: 50
+        specification_snapshot:
+          type: string
+          readOnly: true
+          description: Copy of the spec at time of submission. Immutable after save.
+        pass_fail:
+          allOf:
+          - $ref: '#/components/schemas/PassFailEnum'
+          readOnly: true
+        analyst:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        analyst_name:
+          type: string
+          readOnly: true
+        submitted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        notes:
+          type: string
+      required:
+      - analyst
+      - analyst_name
+      - id
+      - monograph_test
+      - pass_fail
+      - specification_snapshot
+      - submitted_at
+      - test_name
+      - test_point
+      - value
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    User:
+      type: object
+      description: |-
+        Shapes the user object returned to the frontend after login
+        and in user management endpoints.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        full_name:
+          type: string
+          maxLength: 255
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - full_name
+      - id
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
