@@ -37,6 +37,18 @@ class SignatureFailedError(QCSTSException):
     default_status = status.HTTP_401_UNAUTHORIZED
 
 
+class InvalidCredentialsError(QCSTSException):
+    """
+    Raised at login when the email exists and the account is active,
+    but the password does not match. Kept distinct from
+    AccountLockedError (403) so the client can tell "wrong password"
+    apart from "account locked".
+    """
+
+    default_message = "Invalid email or password."
+    default_status = status.HTTP_401_UNAUTHORIZED
+
+
 class AccountLockedError(QCSTSException):
     """
     Raised when a user account is locked due to

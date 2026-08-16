@@ -9,6 +9,7 @@ import AddProductPage from "./pages/AddProductPage";
 import BatchesPage from "./pages/BatchesPage";
 import AddBatchPage from "./pages/AddBatchPage";
 import ReportsPage from "./pages/ReportsPage";
+import BatchStabilityReportPage from "./pages/BatchStabilityReportPage";
 import LoginPage from "./pages/LoginPage";
 import MonographsPage from "./pages/MonographsPage";
 import MonographDetailPage from "./pages/MonographDetailPage";
@@ -44,6 +45,7 @@ function App() {
           <Route path="/schedule/:batchId" element={<ProtectedRoute><SchedulePage /></ProtectedRoute>} />
           <Route path="/test-entry/:batchId/:testPointId" element={<ProtectedRoute><TestEntryPage /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+          <Route path="/reports/batch-stability" element={<ProtectedRoute><BatchStabilityReportPage /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute allowedRoles={["admin"]}><UsersPage /></ProtectedRoute>} />
           <Route path="/audit" element={<ProtectedRoute allowedRoles={["qa_manager", "admin"]}><AuditLogPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} replace />} />

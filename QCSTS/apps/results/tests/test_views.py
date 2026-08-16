@@ -145,6 +145,37 @@ class TestTestResultListView:
         response = c.get(f"/api/v1/results/?test_point={tp.id}")
         assert response.status_code == 200
 
+    def test_filter_by_batch_returns_results_across_all_its_test_points(self):
+        analyst = UserFactory()
+        batch = BatchFactory()
+        other_batch = BatchFactory()
+        tp1, tp2 = TestPoint.objects.filter(batch=batch)[:2]
+        other_tp = TestPoint.objects.filter(batch=other_batch).first()
+        monograph_test = batch.product.monograph.tests.first()
+        other_monograph_test = other_batch.product.monograph.tests.first()
+
+        TestResult.objects.create(
+            test_point=tp1, monograph_test=monograph_test, value="99.5",
+            specification_snapshot=monograph_test.specification, pass_fail="pass",
+            analyst=analyst, created_by=analyst,
+        )
+        TestResult.objects.create(
+            test_point=tp2, monograph_test=monograph_test, value="101.0",
+            specification_snapshot=monograph_test.specification, pass_fail="pass",
+            analyst=analyst, created_by=analyst,
+        )
+        TestResult.objects.create(
+            test_point=other_tp, monograph_test=other_monograph_test, value="50.0",
+            specification_snapshot=other_monograph_test.specification, pass_fail="fail",
+            analyst=analyst, created_by=analyst,
+        )
+
+        c = auth_client(analyst)
+        response = c.get(f"/api/v1/results/?batch={batch.id}")
+        assert response.status_code == 200
+        returned_test_points = {str(r["test_point"]) for r in response.data["data"]}
+        assert returned_test_points == {str(tp1.id), str(tp2.id)}
+
     def test_unauthenticated_cannot_list_results(self):
         client = APIClient()
         response = client.get("/api/v1/results/")

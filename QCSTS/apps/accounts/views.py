@@ -98,32 +98,6 @@ class UserListCreateView(APIView):
         return success_response(data=UserSerializer(user).data, status_code=status.HTTP_201_CREATED)
 
 class UserDetailView(APIView):
-    permission_classes = [IsAdmin]
-    def get_object(self, pk):
-        try: return CustomUser.objects.get(pk=pk)
-        except CustomUser.DoesNotExist: return None
-
-    def get(self, request, pk):
-        user = self.get_object(pk)
-        if not user: return error_response({"detail": "User not found."}, status.HTTP_404_NOT_FOUND)
-        return success_response(data=UserSerializer(user).data)
-
-    def patch(self, request, pk):
-        user = self.get_object(pk)
-        if not user: return error_response({"detail": "User not found."}, status.HTTP_404_NOT_FOUND)
-        serializer = UserSerializer(user, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return success_response(data=UserSerializer(user).data)
-
-    def delete(self, request, pk):
-        user = self.get_object(pk)
-        if not user: return error_response({"detail": "User not found."}, status.HTTP_404_NOT_FOUND)
-        user.is_active = False
-        user.save(update_fields=["is_active"])
-        return success_response(message="User deactivated successfully.")
-
-class UserDetailView(APIView):
     serializer_class = UserSerializer
 
     """

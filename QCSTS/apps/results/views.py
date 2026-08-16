@@ -58,6 +58,12 @@ class SubmitResultView(APIView):
         if test_point_id:
             queryset = queryset.filter(test_point__id=test_point_id)
 
+        # Fetch every result for a batch in a single call (used by the
+        # per-batch stability report — avoids one request per test point).
+        batch_id = request.query_params.get("batch")
+        if batch_id:
+            queryset = queryset.filter(test_point__batch__id=batch_id)
+
         return success_response(data=TestResultSerializer(queryset, many=True).data)
 
     def post(self, request):

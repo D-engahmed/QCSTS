@@ -221,6 +221,8 @@ export const submitResult = (data, signatureToken) =>
   post("/results/", data, { "X-Signature-Token": signatureToken });
 export const getResults = (filters = {}) => get("/results/", filters);
 export const getResult = (id) => get(`/results/${id}/`);
+// All submitted results for a batch, across every test point, in one call.
+export const getBatchResults = (batchId) => get("/results/", { batch: batchId });
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 export const getDashboard = () => get("/reports/dashboard/");
@@ -278,6 +280,7 @@ export default {
   submitResult,
   getResults,
   getResult,
+  getBatchResults,
   // dashboard
   getDashboard,
   // audit

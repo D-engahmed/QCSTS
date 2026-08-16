@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import CustomSelect from "../components/CustomSelect";
 import { getDashboard, getBatches, getProducts, getCurrentUser } from "../services/api";
 import "../styles/style.css";
 
 function ReportsPage() {
+  const navigate = useNavigate();
   const [selectedReportType, setSelectedReportType] = useState("stability");
   const [filters, setFilters] = useState({ product: "", dateRange: "all", studyType: "" });
   const [reportData, setReportData] = useState({ headers: [], rows: [], title: "Stability Summary Report" });
@@ -61,7 +63,7 @@ function ReportsPage() {
       });
     } else if (selectedReportType === "history") {
       const rows = [];
-      filtered.forEach(b => { (b.test_points || []).forEach(tp => { if (cutoff && tp.scheduled_date && new Date(tp.scheduled_date) < cutoff) return; rows.push({ product: b.product_name, batchNo: b.batch_number, testPoint: tp.month === 0 ? "Initial" : `${tp.month}M`, scheduledDate: formatDate(tp.scheduled_date), status: tp.status, isOverdue: tp.status === "overdue" }); }); });
+      filtered.forEach(b => { (b.test_points || []).forEach(tp => { if (cutoff && tp.scheduled_date) { const d = new Date(tp.scheduled_date); if (d < cutoff || d > today) return; } rows.push({ product: b.product_name, batchNo: b.batch_number, testPoint: tp.month === 0 ? "Initial" : `${tp.month}M`, scheduledDate: formatDate(tp.scheduled_date), status: tp.status, isOverdue: tp.status === "overdue" }); }); });
       setReportData({ title: "Batch History Report", headers: ["Product", "Batch No", "Test Point", "Scheduled Date", "Status"], rows });
     } else if (selectedReportType === "upcoming") {
       const in30 = new Date(today); in30.setDate(in30.getDate() + 30);
@@ -194,7 +196,10 @@ function ReportsPage() {
   };
 
   const handleFilterChange = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
-  const selectReport = (type) => setSelectedReportType(type);
+  const selectReport = (type) => {
+    if (type === "batch") { navigate("/reports/batch-stability"); return; }
+    setSelectedReportType(type);
+  };
   
   const renderReportRow = (row, index) => {
     if (selectedReportType === "stability") return <tr key={index}><td><strong>{row.product}</strong></td><td className="inline-mono">{row.batchNo}</td><td><span className={`badge badge-${row.studyType === "Long Study" ? "primary" : "info"}`}>{row.studyType}</span></td><td className="location-badge">{row.location}</td><td>{row.totalTPs}</td><td><span className="badge badge-success">{row.completed}</span></td><td><span className={`badge badge-${row.overdue > 0 ? "danger" : "gray"}`}>{row.overdue}</span></td><td><span className="badge badge-warning">{row.pending}</span></td></tr>;
@@ -208,7 +213,7 @@ function ReportsPage() {
       <div className="page-header"><h2>📈 Reports</h2></div>
       <div className="page-body">
         <div className="report-cards">
-          {[{ type: "stability", icon: "📊", title: "Stability Summary", desc: "Pass/fail summary per batch" }, { type: "history", icon: "📁", title: "Batch History", desc: "Full test history" }, { type: "upcoming", icon: "⏰", title: "Upcoming Tests", desc: "Next 30 days" }, { type: "overdue", icon: "🚨", title: "Overdue Tests", desc: "All overdue tests" }].map(({ type, icon, title, desc }) => <div key={type} className={`report-card ${selectedReportType === type ? "selected" : ""}`} onClick={() => selectReport(type)}><div className="report-card-icon">{icon}</div><div className="report-card-info"><h4>{title}</h4><p>{desc}</p></div></div>)}
+          {[{ type: "stability", icon: "📊", title: "Stability Summary", desc: "Pass/fail summary per batch" }, { type: "history", icon: "📁", title: "Batch History", desc: "Full test history" }, { type: "upcoming", icon: "⏰", title: "Upcoming Tests", desc: "Next 30 days" }, { type: "overdue", icon: "🚨", title: "Overdue Tests", desc: "All overdue tests" }, { type: "batch", icon: "🧪", title: "Batch Stability Report", desc: "Pick a product → batch → see full results" }].map(({ type, icon, title, desc }) => <div key={type} className={`report-card ${selectedReportType === type ? "selected" : ""}`} onClick={() => selectReport(type)}><div className="report-card-icon">{icon}</div><div className="report-card-info"><h4>{title}</h4><p>{desc}</p></div></div>)}
         </div>
         
         <div className="reports-filters">
