@@ -1,6 +1,5 @@
 # <center> QC Stability Tracking System v0.1.3 </center>
 <center>
-
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://postgresql.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev)
