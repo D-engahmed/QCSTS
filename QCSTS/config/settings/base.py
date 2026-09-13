@@ -32,6 +32,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "core",
     "constants",
+    "apps.platform",
     "apps.accounts",
     "apps.audit",
     "apps.products",
