@@ -10,6 +10,7 @@ from apps.chamber.serializers import (
     LocationHistorySerializer,
     ChangeBatchLocationSerializer,
 )
+from apps.platform.services import TenantContextService
 from core.permissions import IsAnalystOrAbove
 from core.responses import success_response
 from services.audit_service import AuditService
@@ -20,7 +21,7 @@ class ChamberInventoryView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = Batch.objects.select_related("product", "product__monograph").all()
+        queryset = TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph"))
 
         study_type = request.query_params.get("study_type")
         if study_type:
@@ -34,7 +35,7 @@ class SamplePullListCreateView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = SamplePull.objects.select_related("batch", "pulled_by", "test_point").all()
+        queryset = TenantContextService.scope_queryset(request, SamplePull.objects.select_related("batch", "pulled_by", "test_point"))
 
         batch_id = request.query_params.get("batch")
         if batch_id:
@@ -43,9 +44,10 @@ class SamplePullListCreateView(APIView):
         return success_response(data=SamplePullSerializer(queryset, many=True).data)
 
     def post(self, request):
+        TenantContextService.resolve(request)
         serializer = SamplePullSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        sample_pull = serializer.save(pulled_by=request.user, created_by=request.user)
+        sample_pull = serializer.save(pulled_by=request.user, created_by=request.user, organization=request.organization)
         return success_response(
             data=SamplePullSerializer(sample_pull).data,
             status_code=status.HTTP_201_CREATED,
@@ -57,6 +59,7 @@ class ChangeBatchLocationView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def post(self, request):
+        TenantContextService.resolve(request)
         serializer = ChangeBatchLocationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -112,5 +115,12 @@ class LocationHistoryView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request, pk):
-        history = LocationHistory.objects.filter(batch__id=pk)
+        TenantContextService.resolve(request)
+        history = TenantContextService.scope_queryset(
+            request,
+            LocationHistory.objects.select_related("batch").filter(
+                batch__organization=request.organization
+            ),
+        )
+        history = history.filter(batch__id=pk)
         return success_response(data=LocationHistorySerializer(history, many=True).data)

@@ -17,3 +17,10 @@ class AuditLogFactory(DjangoModelFactory):
     new_value = {"status": "active"}
     ip_address = "127.0.0.1"
     notes = ""
+    organization = factory.LazyAttribute(
+        lambda obj: (
+            obj.performed_by.memberships.first().organization
+            if obj.performed_by
+            else None
+        )
+    )

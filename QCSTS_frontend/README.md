@@ -129,5 +129,5 @@ npm run dev
 After running the command, open the link shown in the terminal (usually):
 
 ```
-http://localhost:5173
+http://localhost:5342
 ```

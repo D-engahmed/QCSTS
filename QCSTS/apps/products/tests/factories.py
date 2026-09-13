@@ -2,6 +2,22 @@ import factory
 from factory.django import DjangoModelFactory
 from apps.products.models import Monograph, MonographTest, Product
 from apps.accounts.tests.factories import UserFactory
+from apps.platform.models import Membership, Organization, Role
+
+
+def _default_org_for_user(user):
+    if not user:
+        return None
+    membership = user.memberships.filter(is_active=True).order_by("created_at").first()
+    if membership:
+        return membership.organization
+    org, _ = Organization.objects.get_or_create(
+        slug="test-organization",
+        defaults={"name": "Test Organization", "country": "EG"},
+    )
+    role, _ = Role.objects.get_or_create(organization=org, name=user.role or "analyst")
+    Membership.objects.create(user=user, organization=org, role=role, default_site=None)
+    return org
 
 
 class MonographFactory(DjangoModelFactory):
@@ -13,6 +29,7 @@ class MonographFactory(DjangoModelFactory):
     effective_date = "2024-01-01"
     status = "draft"
     created_by = factory.SubFactory(UserFactory)
+    organization = factory.LazyAttribute(lambda obj: _default_org_for_user(obj.created_by))
 
 
 class ApprovedMonographFactory(MonographFactory):
@@ -31,6 +48,7 @@ class MonographTestFactory(DjangoModelFactory):
     unit = "%"
     sequence = factory.Sequence(lambda n: n)
     created_by = factory.SubFactory(UserFactory)
+    organization = factory.LazyAttribute(lambda obj: _default_org_for_user(obj.created_by))
 
 
 class MonographWithTestsFactory(ApprovedMonographFactory):
@@ -58,3 +76,4 @@ class ProductFactory(DjangoModelFactory):
     description = "Test product"
     monograph = factory.SubFactory(MonographWithTestsFactory)
     created_by = factory.SubFactory(UserFactory)
+    organization = factory.LazyAttribute(lambda obj: _default_org_for_user(obj.created_by))

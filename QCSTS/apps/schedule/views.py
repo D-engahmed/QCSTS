@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from apps.schedule.models import TestPoint
 from apps.schedule.serializers import TestPointSerializer
+from apps.platform.services import TenantContextService
 from core.permissions import IsAnalystOrAbove
 from core.responses import success_response, error_response
 
@@ -24,7 +25,7 @@ class TestPointListView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = TestPoint.objects.select_related("batch", "batch__product").all()
+        queryset = TenantContextService.scope_queryset(request, TestPoint.objects.select_related("batch", "batch__product"))
 
         batch_id = request.query_params.get("batch")
         status_filter = request.query_params.get("status")
@@ -56,7 +57,7 @@ class TestPointDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            tp = TestPoint.objects.select_related("batch", "batch__product").get(pk=pk)
+            tp = TenantContextService.scope_queryset(request, TestPoint.objects.select_related("batch", "batch__product")).get(pk=pk)
         except TestPoint.DoesNotExist:
             return error_response({"detail": "Test point not found."}, status.HTTP_404_NOT_FOUND)
         return success_response(data=TestPointSerializer(tp).data)

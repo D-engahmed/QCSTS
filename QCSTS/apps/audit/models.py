@@ -26,6 +26,14 @@ class AuditLog(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "platform.Organization",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="audit_records",
+        db_index=True,
+    )
     performed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="audit_logs"
     )

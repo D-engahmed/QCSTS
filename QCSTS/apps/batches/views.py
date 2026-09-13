@@ -3,6 +3,7 @@ from rest_framework import status
 
 from apps.batches.models import Batch
 from apps.batches.serializers import BatchSerializer
+from apps.platform.services import TenantContextService
 from core.permissions import IsAnalystOrAbove
 from core.responses import success_response, error_response
 from services.audit_service import AuditService
@@ -19,7 +20,7 @@ class BatchListCreateView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = Batch.objects.select_related("product", "product__monograph").all()
+        queryset = TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph"))
 
         product_id = request.query_params.get("product")
         status_filter = request.query_params.get("status")
@@ -35,9 +36,10 @@ class BatchListCreateView(APIView):
         return success_response(data=BatchSerializer(queryset, many=True).data)
 
     def post(self, request):
+        TenantContextService.resolve(request)
         serializer = BatchSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        batch = serializer.save(created_by=request.user)
+        batch = serializer.save(created_by=request.user, organization=request.organization)
         return success_response(
             data=BatchSerializer(batch).data, status_code=status.HTTP_201_CREATED
         )
@@ -53,20 +55,20 @@ class BatchDetailView(APIView):
 
     permission_classes = [IsAnalystOrAbove]
 
-    def get_object(self, pk):
+    def get_object(self, request, pk):
         try:
-            return Batch.objects.select_related("product", "product__monograph").get(pk=pk)
+            return TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph")).get(pk=pk)
         except Batch.DoesNotExist:
             return None
 
     def get(self, request, pk):
-        batch = self.get_object(pk)
+        batch = self.get_object(request, pk)
         if not batch:
             return error_response({"detail": "Batch not found."}, status.HTTP_404_NOT_FOUND)
         return success_response(data=BatchSerializer(batch).data)
 
     def patch(self, request, pk):
-        batch = self.get_object(pk)
+        batch = self.get_object(request, pk)
         if not batch:
             return error_response({"detail": "Batch not found."}, status.HTTP_404_NOT_FOUND)
         old_value = {"status": batch.status}

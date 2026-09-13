@@ -22,6 +22,7 @@ class TestResultFactory(DjangoModelFactory):
     analyst = factory.SubFactory(UserFactory)
     notes = ""
     created_by = factory.SubFactory(UserFactory)
+    organization = factory.LazyAttribute(lambda obj: obj.test_point.batch.organization)
 
     class Params:
         batch = factory.SubFactory(BatchFactory)

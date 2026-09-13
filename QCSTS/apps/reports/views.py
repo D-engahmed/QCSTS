@@ -2,6 +2,7 @@ from django.utils import timezone
 from rest_framework.views import APIView
 
 from apps.batches.models import Batch
+from apps.platform.services import TenantContextService
 from apps.products.models import Product
 from apps.schedule.models import TestPoint
 from core.permissions import IsAnalystOrAbove
@@ -13,20 +14,22 @@ class DashboardView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
+        TenantContextService.resolve(request)
         today = timezone.now().date()
         in_30_days = today + timezone.timedelta(days=30)
 
-        total_products = Product.objects.filter(is_active=True).count()
-        active_batches = Batch.objects.filter(status="active").count()
-        overdue_count = TestPoint.objects.filter(status="overdue").count()
+        total_products = Product.objects.filter(organization=request.organization, is_active=True).count()
+        active_batches = Batch.objects.filter(organization=request.organization, status="active").count()
+        overdue_count = TestPoint.objects.filter(organization=request.organization, status="overdue").count()
         upcoming_count = TestPoint.objects.filter(
+            organization=request.organization,
             status="pending",
             scheduled_date__gte=today,
             scheduled_date__lte=in_30_days,
         ).count()
 
         # Overdue test points – include product_name and batch_number
-        overdue_points = TestPoint.objects.filter(status="overdue").select_related("batch", "batch__product")[:20]
+        overdue_points = TestPoint.objects.filter(organization=request.organization, status="overdue").select_related("batch", "batch__product")[:20]
         overdue_data = []
         for tp in overdue_points:
             overdue_data.append({
@@ -40,6 +43,7 @@ class DashboardView(APIView):
 
         # Upcoming test points
         upcoming_points = TestPoint.objects.filter(
+            organization=request.organization,
             status="pending",
             scheduled_date__gte=today,
             scheduled_date__lte=in_30_days,
@@ -56,7 +60,7 @@ class DashboardView(APIView):
             })
 
         # Failed batches
-        failed_batches = Batch.objects.filter(status="failed").select_related("product")[:10]
+        failed_batches = Batch.objects.filter(organization=request.organization, status="failed").select_related("product")[:10]
         failed_data = []
         for b in failed_batches:
             failed_data.append({
@@ -68,7 +72,7 @@ class DashboardView(APIView):
             })
 
         # Active batches in chamber
-        active_batches_list = Batch.objects.filter(status="active").select_related("product")[:10]
+        active_batches_list = Batch.objects.filter(organization=request.organization, status="active").select_related("product")[:10]
         active_data = []
         for b in active_batches_list:
             active_data.append({

@@ -12,6 +12,7 @@ from apps.products.serializers import (
 from core.permissions import IsAnalystOrAbove, IsQAManager
 from core.responses import success_response, error_response
 from core.exceptions import MonographAlreadyApproved
+from apps.platform.services import TenantContextService
 from services.audit_service import AuditService
 
 
@@ -20,13 +21,14 @@ class MonographListCreateView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        monographs = Monograph.objects.all()
-        return success_response(data=MonographSerializer(monographs, many=True).data)
+        queryset = TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by"))
+        return success_response(data=MonographSerializer(queryset, many=True).data)
 
     def post(self, request):
+        TenantContextService.resolve(request)
         serializer = MonographCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        monograph = serializer.save(created_by=request.user)
+        monograph = serializer.save(created_by=request.user, organization=request.organization)
 
         AuditService.log(
             performed_by=request.user,
@@ -46,20 +48,20 @@ class MonographDetailView(APIView):
     serializer_class = MonographSerializer
     permission_classes = [IsAnalystOrAbove]
 
-    def get_object(self, pk):
+    def get_object(self, request, pk):
         try:
-            return Monograph.objects.get(pk=pk)
+            return TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
         except Monograph.DoesNotExist:
             return None
 
     def get(self, request, pk):
-        monograph = self.get_object(pk)
+        monograph = self.get_object(request, pk)
         if not monograph:
             return error_response({"detail": "Monograph not found."}, status.HTTP_404_NOT_FOUND)
         return success_response(data=MonographSerializer(monograph).data)
 
     def patch(self, request, pk):
-        monograph = self.get_object(pk)
+        monograph = self.get_object(request, pk)
         if not monograph:
             return error_response({"detail": "Monograph not found."}, status.HTTP_404_NOT_FOUND)
         if monograph.is_approved():
@@ -89,7 +91,7 @@ class MonographApproveView(APIView):
 
     def post(self, request, pk):
         try:
-            monograph = Monograph.objects.get(pk=pk)
+            monograph = TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
         except Monograph.DoesNotExist:
             return error_response({"detail": "Monograph not found."}, status.HTTP_404_NOT_FOUND)
 
@@ -121,21 +123,21 @@ class MonographTestListCreateView(APIView):
     serializer_class = MonographTestSerializer
     permission_classes = [IsAnalystOrAbove]
 
-    def get_monograph(self, pk):
+    def get_monograph(self, request, pk):
         try:
-            return Monograph.objects.get(pk=pk)
+            return TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
         except Monograph.DoesNotExist:
             return None
 
     def get(self, request, pk):
-        monograph = self.get_monograph(pk)
+        monograph = self.get_monograph(request, pk)
         if not monograph:
             return error_response({"detail": "Monograph not found."}, status.HTTP_404_NOT_FOUND)
         tests = monograph.tests.all()
         return success_response(data=MonographTestSerializer(tests, many=True).data)
 
     def post(self, request, pk):
-        monograph = self.get_monograph(pk)
+        monograph = self.get_monograph(request, pk)
         if not monograph:
             return error_response({"detail": "Monograph not found."}, status.HTTP_404_NOT_FOUND)
         if monograph.is_approved():
@@ -143,7 +145,7 @@ class MonographTestListCreateView(APIView):
 
         serializer = MonographTestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        test = serializer.save(monograph=monograph, created_by=request.user)
+        test = serializer.save(monograph=monograph, created_by=request.user, organization=request.organization)
 
         AuditService.log(
             performed_by=request.user,
@@ -165,14 +167,14 @@ class ProductListCreateView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        products = Product.objects.all()
-        # FIXED: added missing closing parenthesis
-        return success_response(data=ProductSerializer(products, many=True).data)
+        queryset = TenantContextService.scope_queryset(request, Product.objects.select_related("monograph", "created_by"))
+        return success_response(data=ProductSerializer(queryset, many=True).data)
 
     def post(self, request):
-        serializer = ProductSerializer(data=request.data)
+        TenantContextService.resolve(request)
+        serializer = ProductSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        product = serializer.save(created_by=request.user)
+        product = serializer.save(created_by=request.user, organization=request.organization)
 
         AuditService.log(
             performed_by=request.user,
@@ -192,20 +194,20 @@ class ProductDetailView(APIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAnalystOrAbove]
 
-    def get_object(self, pk):
+    def get_object(self, request, pk):
         try:
-            return Product.objects.get(pk=pk)
+            return TenantContextService.scope_queryset(request, Product.objects.select_related("monograph", "created_by")).get(pk=pk)
         except Product.DoesNotExist:
             return None
 
     def get(self, request, pk):
-        product = self.get_object(pk)
+        product = self.get_object(request, pk)
         if not product:
             return error_response({"detail": "Product not found."}, status.HTTP_404_NOT_FOUND)
         return success_response(data=ProductSerializer(product).data)
 
     def patch(self, request, pk):
-        product = self.get_object(pk)
+        product = self.get_object(request, pk)
         if not product:
             return error_response({"detail": "Product not found."}, status.HTTP_404_NOT_FOUND)
         old_value = ProductSerializer(product).data

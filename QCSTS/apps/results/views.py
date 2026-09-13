@@ -4,6 +4,7 @@ from core.permissions import IsAnalystOrAbove
 from core.responses import success_response, error_response
 from apps.results.models import TestResult
 from apps.results.serializers import TestResultSerializer
+from apps.platform.services import TenantContextService
 from services.signature_service import SignatureService
 
 
@@ -48,11 +49,11 @@ class SubmitResultView(APIView):
     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = TestResult.objects.select_related(
+        queryset = TenantContextService.scope_queryset(request, TestResult.objects.select_related(
             "test_point",
             "monograph_test",
             "analyst",
-        ).all()
+        ))
 
         test_point_id = request.query_params.get("test_point")
         if test_point_id:
@@ -67,15 +68,17 @@ class SubmitResultView(APIView):
         return success_response(data=TestResultSerializer(queryset, many=True).data)
 
     def post(self, request):
+        TenantContextService.resolve(request)
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
             return error_response("Invalid or missing signature token", status_code=403)
 
-        serializer = TestResultSerializer(data=request.data)
+        serializer = TestResultSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         result = serializer.save(
             analyst=request.user,
             created_by=request.user,
+            organization=request.organization,
         )
         return success_response(
             data=TestResultSerializer(result).data,
