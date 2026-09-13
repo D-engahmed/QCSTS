@@ -76,10 +76,13 @@ class TestResult(BaseModel):
     def save(self, *args, **kwargs):
         """
         Prevent modification after initial submission.
-        Results are immutable once saved.
+        Results are immutable once saved, including soft-deleted (historical) records.
         """
-        if self.pk and TestResult.objects.filter(pk=self.pk).exists():
+        # CRITICAL FIX: Use all_objects to check soft-deleted records as well
+        if self.pk and TestResult.all_objects.filter(pk=self.pk).exists():
             raise PermissionError("Test results cannot be modified after submission.")
+            
         if self.organization_id is None and self.test_point_id:
             self.organization = self.test_point.batch.organization
+            
         super().save(*args, **kwargs)

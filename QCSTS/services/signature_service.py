@@ -4,7 +4,6 @@ from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
-
 class SignatureService:
     """
     Issues and validates short-lived electronic signature tokens.
@@ -38,15 +37,20 @@ class SignatureService:
         """
         Returns True if the token is valid and not expired.
         Consumes the token on success — one-time use.
+        
+        Uses atomic cache.delete() to prevent race conditions
+        where a token could be replayed concurrently by an attacker.
         """
         if not token:
             return False
+            
         cache_key = cls._cache_key(user.id, token)
-        is_valid = cache.get(cache_key)
-        if is_valid:
-            cache.delete(cache_key)
+        
+        # Atomic deletion: returns True if the key existed and was deleted
+        if cache.delete(cache_key):
             logger.info("SignatureService: token validated for user %s", user.email)
             return True
+            
         logger.warning("SignatureService: invalid/expired token for user %s", user.email)
         return False
 

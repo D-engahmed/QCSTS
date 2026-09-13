@@ -12,26 +12,25 @@ class TestResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestResult
         fields = [
-            "id",
-            "test_point",
-            "monograph_test",
-            "test_name",
-            "value",
-            "unit",
-            "specification_snapshot",
-            "pass_fail",
-            "analyst",
-            "analyst_name",
-            "submitted_at",
-            "notes",
+            "id", "test_point", "monograph_test", "test_name",
+            "value", "unit", "specification_snapshot", "pass_fail",
+            "analyst", "analyst_name", "submitted_at", "notes",
+            "organization"  # Explicitly include to handle read-only scoping safely
         ]
         read_only_fields = [
-            "id",
-            "specification_snapshot",
-            "pass_fail",
-            "analyst",
-            "submitted_at",
+            "id", "specification_snapshot", "pass_fail",
+            "analyst", "submitted_at", "organization"
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and getattr(request, "organization", None):
+            org = request.organization
+            # Scope to prevent cross-tenant assignment (IDOR)
+            self.fields["test_point"].queryset = self.fields["test_point"].queryset.filter(organization=org)
+            self.fields["monograph_test"].queryset = self.fields["monograph_test"].queryset.filter(organization=org)
+
 
     def get_analyst_name(self, obj):
         return obj.analyst.full_name if obj.analyst else None
