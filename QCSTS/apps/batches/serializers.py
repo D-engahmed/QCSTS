@@ -58,6 +58,8 @@ class BatchSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
+        request = self.context.get("request")
+
         # Rule 1 — incubation_date must be >= mfg_date
         if data.get("incubation_date") and data.get("mfg_date"):
             if data["incubation_date"] < data["mfg_date"]:
@@ -71,12 +73,15 @@ class BatchSerializer(serializers.ModelSerializer):
             if not product.monograph or not product.monograph.is_approved():
                 raise MonographNotApproved()
 
-        # Rule 3 — chamber location must be unique
+        # Rule 3 — chamber location must be unique within the active organization
         shelf = data.get("shelf")
         rack = data.get("rack")
         position = data.get("position")
         if shelf and rack and position:
-            if Batch.objects.filter(shelf=shelf, rack=rack, position=position).exists():
+            qs = Batch.objects.all()
+            if request and getattr(request, "organization", None) is not None:
+                qs = qs.filter(organization=request.organization)
+            if qs.filter(shelf=shelf, rack=rack, position=position).exists():
                 raise serializers.ValidationError("This chamber location is already occupied.")
 
         return data

@@ -80,4 +80,6 @@ class TestResult(BaseModel):
         """
         if self.pk and TestResult.objects.filter(pk=self.pk).exists():
             raise PermissionError("Test results cannot be modified after submission.")
+        if self.organization_id is None and self.test_point_id:
+            self.organization = self.test_point.batch.organization
         super().save(*args, **kwargs)

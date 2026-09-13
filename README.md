@@ -1,4 +1,7 @@
 # <center> QC Stability Tracking System v0.1.3 </center>
+<center>
+
+=======
 <center> 
     
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org)

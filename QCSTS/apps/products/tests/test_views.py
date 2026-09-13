@@ -11,6 +11,7 @@ from apps.accounts.tests.factories import (
     AdminFactory,
     QAManagerFactory,
 )
+from apps.platform.models import Membership, Organization, Role
 
 
 def auth_client(user):
@@ -188,3 +189,19 @@ class TestProductViews:
         client = APIClient()
         response = client.get("/api/v1/products/")
         assert response.status_code == 401
+
+    def test_cross_tenant_product_lookup_is_rejected(self):
+        analyst = UserFactory()
+        org_a = Organization.objects.create(name="Alpha Pharma", slug="alpha", country="EG")
+        org_b = Organization.objects.create(name="Beta Pharma", slug="beta", country="EG")
+        role_a = Role.objects.create(organization=org_a, name="Analyst")
+        Membership.objects.create(user=analyst, organization=org_a, role=role_a, default_site=None)
+
+        product_b = ProductFactory(organization=org_b)
+        c = auth_client(analyst)
+        response = c.get(
+            f"/api/v1/products/{product_b.id}/",
+            HTTP_X_ORGANIZATION_ID=str(org_a.id),
+        )
+
+        assert response.status_code == 404

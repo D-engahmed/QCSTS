@@ -23,6 +23,7 @@ class BatchFactory(DjangoModelFactory):
     qty_placed = 60
     qty_remaining = 60
     created_by = factory.SubFactory(UserFactory)
+    organization = factory.LazyAttribute(lambda obj: obj.product.organization)
 
     @classmethod
     def _create(cls, model_class, *args, **kwargs):

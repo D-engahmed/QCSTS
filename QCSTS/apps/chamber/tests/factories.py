@@ -14,6 +14,7 @@ class SamplePullFactory(DjangoModelFactory):
     pulled_by = factory.SubFactory(UserFactory)
     notes = ""
     created_by = factory.SubFactory(UserFactory)
+    organization = factory.LazyAttribute(lambda obj: obj.batch.organization)
 
 
 class LocationHistoryFactory(DjangoModelFactory):
@@ -29,3 +30,4 @@ class LocationHistoryFactory(DjangoModelFactory):
     new_position = "P2"
     changed_by = factory.SubFactory(UserFactory)
     created_by = factory.SubFactory(UserFactory)
+    organization = factory.LazyAttribute(lambda obj: obj.batch.organization)

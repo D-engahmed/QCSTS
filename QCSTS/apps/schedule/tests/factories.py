@@ -14,3 +14,4 @@ class TestPointFactory(DjangoModelFactory):
     scheduled_date = factory.LazyFunction(date.today)
     status = "pending"
     created_by = factory.SubFactory(UserFactory)
+    organization = factory.LazyAttribute(lambda obj: obj.batch.organization if obj.batch else None)

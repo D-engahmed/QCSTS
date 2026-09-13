@@ -32,6 +32,16 @@ class BaseModel(models.Model):
         editable=False,
         help_text="Unique identifier for this record. Auto-generated UUID.",
     )
+    # Nullable only during the staged Phase 1 backfill. The follow-up migration
+    # makes this mandatory after every legacy row belongs to an organization.
+    organization = models.ForeignKey(
+        "platform.Organization",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="%(app_label)s_%(class)s_records",
+        db_index=True,
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Timestamp when this record was created. Set by server, never editable.",

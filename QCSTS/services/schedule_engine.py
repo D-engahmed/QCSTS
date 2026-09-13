@@ -62,6 +62,7 @@ class ScheduleEngine:
 
                     tp = TestPoint.objects.create(
                         batch=batch,
+                        organization=batch.organization,
                         month=month,
                         scheduled_date=scheduled_date,
                         status="pending",

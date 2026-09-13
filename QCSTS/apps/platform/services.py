@@ -50,6 +50,11 @@ class TenantContextService:
         request.tenant_context = context
         return context
 
+    @classmethod
+    def scope_queryset(cls, request, queryset):
+        cls.resolve(request)
+        return queryset.filter(organization=request.organization)
+
     @staticmethod
     def _resolve_site(membership, requested_site_id):
         if not requested_site_id:
