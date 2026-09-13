@@ -68,16 +68,35 @@ class BaseModel(models.Model):
         abstract = True  # Django will NOT create a table for BaseModel itself
         ordering = ["-created_at"]  # newest first by default
 
-    def soft_delete(self, deleted_by=None):
+    def soft_delete(self, deleted_by=None, ip_address=None, notes=""):
         """
         Marks the record as inactive instead of deleting it.
         This is the ONLY way to 'delete' anything in QCSTS.
-
-        The caller (service layer) is responsible for writing
-        the AuditLog entry before calling this method.
+        
+        Automatically creates an atomic AuditLog entry to ensure 
+        GxP compliance and traceability.
         """
+        from services.audit_service import AuditService  # Local import to avoid circular dependency
+        
+        old_value = {"is_active": True}
+        new_value = {"is_active": False}
+        
         self.is_active = False
-        # TODO : AuditService.log() call to be added when audit app is built
+        
+        # Atomic audit log creation
+        AuditService.log(
+            performed_by=deleted_by,
+            action="DELETE",
+            model_name=self.__class__.__name__,
+            object_id=self.id,
+            object_repr=str(self),
+            old_value=old_value,
+            new_value=new_value,
+            ip_address=ip_address,
+            notes=notes,
+            organization=self.organization if hasattr(self, "organization") else None,
+        )
+        
         self.save(update_fields=["is_active", "updated_at"])
 
     def __repr__(self):
