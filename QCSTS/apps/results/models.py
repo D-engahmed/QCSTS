@@ -78,7 +78,15 @@ class TestResult(BaseModel):
         Prevent modification after initial submission.
         Results are immutable once saved, including soft-deleted (historical) records.
         """
-        # CRITICAL FIX: Use all_objects to check soft-deleted records as well
+        update_fields = kwargs.get("update_fields")
+        
+        # CRITICAL FIX: Allow soft deletes (which only update is_active and updated_at)
+        # without triggering the immutability block.
+        if update_fields and set(update_fields) == {"is_active", "updated_at"}:
+            super().save(*args, **kwargs)
+            return
+
+        # Use all_objects to ensure soft-deleted records remain strictly immutable
         if self.pk and TestResult.all_objects.filter(pk=self.pk).exists():
             raise PermissionError("Test results cannot be modified after submission.")
             
