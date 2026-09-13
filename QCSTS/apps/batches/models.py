@@ -70,22 +70,41 @@ class Batch(BaseModel):
     def get_location(self):
         return f"{self.shelf}/{self.rack}/{self.position}"
 
-    def update_status_from_test_points(self):
+    def update_status_from_test_points(self, triggered_by=None, ip_address=None):
         """
         Update batch status based on its test points.
-        Called automatically when a test point status changes.
+        Audits the transition to ensure GxP traceability.
         """
         from apps.schedule.models import TestPoint  # local import to avoid circular dependency
+        from services.audit_service import AuditService
 
         test_points = TestPoint.objects.filter(batch=self)
         if not test_points.exists():
             return
 
+        old_status = self.status
+        
         if any(tp.status == "failed" for tp in test_points):
-            self.status = "failed"
+            new_status = "failed"
         elif all(tp.status == "completed" for tp in test_points):
-            self.status = "complete"
+            new_status = "complete"
         else:
-            self.status = "active"
+            new_status = "active"
 
-        self.save(update_fields=["status"])
+        if old_status != new_status:
+            self.status = new_status
+            self.save(update_fields=["status", "updated_at"])
+            
+            # Audit the automated transition
+            AuditService.log(
+                performed_by=triggered_by, # None for system/cron jobs
+                action="UPDATE",
+                model_name="Batch",
+                object_id=self.id,
+                object_repr=str(self),
+                old_value={"status": old_status},
+                new_value={"status": new_status},
+                ip_address=ip_address,
+                notes="Automated status transition from test point evaluation.",
+                organization=self.organization,
+            )
