@@ -2,8 +2,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
-from apps.results.models import TestResult, ResultReview
-from apps.results.serializers import TestResultSerializer, ResultReviewSerializer
+from apps.results.models import TestResult, ResultReview, ResultCorrection
+from apps.results.serializers import TestResultSerializer, ResultReviewSerializer, ResultCorrectionSerializer
 from apps.platform.services import TenantContextService
 from services.signature_service import SignatureService
 from services.audit_service import AuditService
@@ -252,5 +252,88 @@ class QARejectResultView(APIView):
 
         return success_response(
             data=ResultReviewSerializer(review).data,
+            status_code=201,
+        )
+
+class CorrectResultView(APIView):
+    """
+    POST /api/v1/results/<result_id>/correct/
+    Header: X-Signature-Token: <token>
+    Body: {
+        "value": "99.8",
+        "unit": "%",
+        "reason": "Typo in original transcription. Verified against lab notebook."
+    }
+    """
+    permission_classes = [IsAuthenticated, IsAnalystOrAbove]
+
+    def post(self, request, result_id):
+        TenantContextService.resolve(request)
+
+        token = request.headers.get("X-Signature-Token")
+        if not token or not SignatureService.validate(request.user, token):
+            return error_response("Invalid or missing signature token", status_code=403)
+
+        reason = request.data.get("reason", "").strip()
+        if not reason:
+            return error_response("A reason for the correction is required.", status_code=400)
+
+        # Fetch the active original result
+        original_result = get_object_or_404(
+            TestResult.objects.select_related("test_point", "monograph_test"),
+            id=result_id,
+            organization=request.organization,
+            is_active=True
+        )
+
+        # 1. Soft-delete the original result (preserves history)
+        original_result.soft_delete(
+            deleted_by=request.user,
+            ip_address=request.META.get("REMOTE_ADDR"),
+            notes=f"Superseded by correction. Reason: {reason}"
+        )
+
+        # 2. Create the new corrected result
+        new_data = {
+            "test_point": original_result.test_point.id,
+            "monograph_test": original_result.monograph_test.id,
+            "value": request.data.get("value"),
+            "unit": request.data.get("unit", original_result.unit),
+            "notes": request.data.get("notes", original_result.notes),
+        }
+        
+        serializer = TestResultSerializer(data=new_data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        
+        corrected_result = serializer.save(
+            analyst=request.user,
+            created_by=request.user,
+            organization=request.organization,
+        )
+
+        # 3. Create the immutable correction record
+        correction = ResultCorrection.objects.create(
+            original_result=original_result,
+            corrected_result=corrected_result,
+            reason=reason,
+            corrected_by=request.user,
+            organization=request.organization,
+            created_by=request.user,
+        )
+
+        AuditService.log(
+            performed_by=request.user,
+            action="UPDATE", 
+            model_name="ResultCorrection",
+            object_id=correction.id,
+            object_repr=str(correction),
+            new_value={"reason": reason, "original_id": str(original_result.id), "new_id": str(corrected_result.id)},
+            ip_address=request.META.get("REMOTE_ADDR"),
+            notes="Result corrected via GxP correction workflow.",
+            organization=request.organization,
+        )
+
+        return success_response(
+            data=ResultCorrectionSerializer(correction).data,
             status_code=201,
         )

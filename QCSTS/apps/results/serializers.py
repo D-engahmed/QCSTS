@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.results.models import TestResult, ResultReview
+from apps.results.models import TestResult, ResultReview, ResultCorrection
 from apps.schedule.models import TestPoint
 from core.exceptions import ResultAlreadySubmitted
 from services.outcome_evaluator import OutcomeEvaluator
@@ -107,3 +107,34 @@ class ResultReviewSerializer(serializers.ModelSerializer):
 
     def get_reviewed_by_name(self, obj):
         return obj.reviewed_by.full_name if obj.reviewed_by else None
+
+class ResultCorrectionSerializer(serializers.ModelSerializer):
+    corrected_by_name = serializers.SerializerMethodField()
+    original_value = serializers.SerializerMethodField()
+    corrected_value = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ResultCorrection
+        fields = [
+            "id",
+            "original_result",
+            "corrected_result",
+            "original_value",
+            "corrected_value",
+            "reason",
+            "corrected_by",
+            "corrected_by_name",
+            "created_at",
+            "organization"
+        ]
+        read_only_fields = fields
+
+    def get_corrected_by_name(self, obj):
+        return obj.corrected_by.full_name if obj.corrected_by else None
+
+    def get_original_value(self, obj):
+        # Fetch from all_objects since the original is soft-deleted
+        return TestResult.all_objects.get(id=obj.original_result_id).value
+
+    def get_corrected_value(self, obj):
+        return obj.corrected_result.value

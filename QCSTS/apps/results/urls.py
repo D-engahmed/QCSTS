@@ -5,6 +5,7 @@ from apps.results.views import (
     SupervisorReviewResultView,
     QAApproveResultView,
     QARejectResultView,
+    CorrectResultView, # <-- ADDED
 )
 
 urlpatterns = [
@@ -12,5 +13,6 @@ urlpatterns = [
     path("<uuid:result_id>/review/", SupervisorReviewResultView.as_view(), name="review-result"),
     path("<uuid:result_id>/approve/", QAApproveResultView.as_view(), name="approve-result"),
     path("<uuid:result_id>/reject/", QARejectResultView.as_view(), name="reject-result"),
+    path("<uuid:result_id>/correct/", CorrectResultView.as_view(), name="correct-result"), # <-- ADDED
     path("", SubmitResultView.as_view(), name="submit-result"),
 ]
