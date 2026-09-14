@@ -39,13 +39,10 @@ class AuditService:
         new_value=None,
         ip_address=None,
         notes="",
+        organization=None,  # NEW: Added for multi-tenant isolation
     ):
         """
         Creates an immutable audit log entry.
-
-        If writing fails for any reason, the error is logged
-        to file and the exception is swallowed — the primary
-        operation must never fail because of an audit issue.
         """
         try:
             AuditLog.objects.create(
@@ -58,9 +55,9 @@ class AuditService:
                 new_value=new_value,
                 ip_address=ip_address,
                 notes=notes,
+                organization=organization,  # NEW
             )
         except Exception as e:
-            # Non-fatal — log to file, never raise
             logger.error(
                 "AuditService failed to write log | action=%s model=%s object=%s error=%s",
                 action,

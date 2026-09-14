@@ -46,7 +46,7 @@ class TestPoint(BaseModel):
         return f"{self.batch.batch_number} — Month {self.month} ({self.scheduled_date})"
 
     def is_overdue(self):
-        return self.status == "pending" and self.scheduled_date < timezone.now().date()
+        return self.status == "pending" and self.scheduled_date < timezone.localdate()
 
     def update_status(self):
         """
