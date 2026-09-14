@@ -229,3 +229,12 @@ def qcsts_exception_handler(exc, context):
         },
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
+
+
+class EvaluationError(QCSTSException):
+    """
+    Raised when the OutcomeEvaluator cannot parse a value or specification.
+    Prevents silent fallbacks and ensures data integrity.
+    """
+    default_message = "Cannot evaluate result. The value or specification format is invalid."
+    default_status = status.HTTP_422_UNPROCESSABLE_ENTITY

@@ -66,13 +66,19 @@ class TestResultSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        from core.exceptions import EvaluationError
+        
         monograph_test = validated_data["monograph_test"]
-
         validated_data["specification_snapshot"] = monograph_test.specification
-        validated_data["pass_fail"] = OutcomeEvaluator.evaluate(
-            validated_data["value"],
-            monograph_test.specification,
-        )
+        
+        try:
+            validated_data["pass_fail"] = OutcomeEvaluator.evaluate(
+                validated_data["value"],
+                monograph_test.specification,
+            )
+        except EvaluationError as e:
+            # Raise a DRF ValidationError so the API returns a clean 400 error
+            raise serializers.ValidationError({"value": str(e)})
 
         result = TestResult.objects.create(**validated_data)
         return result
