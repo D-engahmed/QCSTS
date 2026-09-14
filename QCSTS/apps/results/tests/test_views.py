@@ -184,38 +184,52 @@ class TestTestResultListView:
 
 @pytest.mark.django_db
 class TestOutcomeEvaluator:
+    from services.outcome_evaluator import OutcomeEvaluator
+    from core.exceptions import EvaluationError
 
     def test_pass_within_range(self):
-        from services.outcome_evaluator import OutcomeEvaluator
-
-        assert OutcomeEvaluator.evaluate("99.5", "98.0 - 102.0") == "pass"
+        assert self.OutcomeEvaluator.evaluate("99.5", "98.0 - 102.0") == "pass"
 
     def test_fail_below_range(self):
-        from services.outcome_evaluator import OutcomeEvaluator
-
-        assert OutcomeEvaluator.evaluate("97.0", "98.0 - 102.0") == "fail"
+        assert self.OutcomeEvaluator.evaluate("97.0", "98.0 - 102.0") == "fail"
 
     def test_fail_above_range(self):
-        from services.outcome_evaluator import OutcomeEvaluator
-
-        assert OutcomeEvaluator.evaluate("103.0", "98.0 - 102.0") == "fail"
+        assert self.OutcomeEvaluator.evaluate("103.0", "98.0 - 102.0") == "fail"
 
     def test_nlt_pass(self):
-        from services.outcome_evaluator import OutcomeEvaluator
-
-        assert OutcomeEvaluator.evaluate("80", "NLT 75") == "pass"
+        assert self.OutcomeEvaluator.evaluate("80", "NLT 75") == "pass"
 
     def test_nlt_fail(self):
-        from services.outcome_evaluator import OutcomeEvaluator
-
-        assert OutcomeEvaluator.evaluate("70", "NLT 75") == "fail"
+        assert self.OutcomeEvaluator.evaluate("70", "NLT 75") == "fail"
 
     def test_nmt_pass(self):
-        from services.outcome_evaluator import OutcomeEvaluator
-
-        assert OutcomeEvaluator.evaluate("4.0", "NMT 5.0") == "pass"
+        assert self.OutcomeEvaluator.evaluate("4.0", "NMT 5.0") == "pass"
 
     def test_nmt_fail(self):
-        from services.outcome_evaluator import OutcomeEvaluator
+        assert self.OutcomeEvaluator.evaluate("6.0", "NMT 5.0") == "fail"
 
-        assert OutcomeEvaluator.evaluate("6.0", "NMT 5.0") == "fail"
+    def test_supports_negative_numbers(self):
+        # pH or temperature can be negative
+        assert self.OutcomeEvaluator.evaluate("-2.5", "-5.0 - 0.0") == "pass"
+        assert self.OutcomeEvaluator.evaluate("-6.0", "-5.0 - 0.0") == "fail"
+
+    def test_exact_match_uses_strict_equality(self):
+        # No more invented 2% tolerance!
+        assert self.OutcomeEvaluator.evaluate("7.0", "7.0") == "pass"
+        assert self.OutcomeEvaluator.evaluate("7.1", "7.0") == "fail" # Previously passed due to 2% tolerance
+
+    def test_malformed_value_raises_exception(self):
+        import pytest
+        with pytest.raises(self.EvaluationError):
+            self.OutcomeEvaluator.evaluate("99.5.2", "98.0 - 102.0") # Malformed value
+            
+        with pytest.raises(self.EvaluationError):
+            self.OutcomeEvaluator.evaluate("ABC", "98.0 - 102.0") # Non-numeric
+
+    def test_malformed_specification_raises_exception(self):
+        import pytest
+        with pytest.raises(self.EvaluationError):
+            self.OutcomeEvaluator.evaluate("99.5", "ASDF") # Unrecognized format
+            
+        with pytest.raises(self.EvaluationError):
+            self.OutcomeEvaluator.evaluate("99.5", "102.0 - 98.0") # Reversed range
