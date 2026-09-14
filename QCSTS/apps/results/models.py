@@ -1,18 +1,10 @@
 from django.db import models
 from core.models import BaseModel, ActiveManager
 
-
 class TestResult(BaseModel):
     """
     A single test result submitted by an analyst for a specific
     test point and monograph test.
-
-    Rules:
-    - Requires electronic signature (HasValidSignature permission)
-    - specification_snapshot copies the spec at time of submission
-    - pass_fail is calculated automatically by OutcomeEvaluator
-    - Cannot be deleted or modified after submission
-    - One result per (test_point, monograph_test) pair
     """
 
     PASS_FAIL_CHOICES = [
@@ -76,17 +68,13 @@ class TestResult(BaseModel):
     def save(self, *args, **kwargs):
         """
         Prevent modification after initial submission.
-        Results are immutable once saved, including soft-deleted (historical) records.
         """
         update_fields = kwargs.get("update_fields")
         
-        # CRITICAL FIX: Allow soft deletes (which only update is_active and updated_at)
-        # without triggering the immutability block.
         if update_fields and set(update_fields) == {"is_active", "updated_at"}:
             super().save(*args, **kwargs)
             return
 
-        # Use all_objects to ensure soft-deleted records remain strictly immutable
         if self.pk and TestResult.all_objects.filter(pk=self.pk).exists():
             raise PermissionError("Test results cannot be modified after submission.")
             
@@ -94,3 +82,108 @@ class TestResult(BaseModel):
             self.organization = self.test_point.batch.organization
             
         super().save(*args, **kwargs)
+
+    def workflow_state(self):
+        """
+        Derive workflow state from immutable ResultReview records.
+        """
+        reviews = self.reviews.all()
+
+        if reviews.filter(action="QA_APPROVE").exists():
+            return "approved"
+
+        if reviews.filter(action="QA_REJECT").exists():
+            return "rejected"
+
+        if reviews.filter(action="SUPERVISOR_REVIEW").exists():
+            return "under_review"
+
+        return "submitted"
+
+    def build_review_snapshot(self):
+        """
+        Captures the exact submitted result version reviewed/signed.
+        """
+        return {
+            "result_id": str(self.id),
+            "test_point_id": str(self.test_point_id),
+            "monograph_test_id": str(self.monograph_test_id),
+            "value": self.value,
+            "unit": self.unit,
+            "specification_snapshot": self.specification_snapshot,
+            "pass_fail": self.pass_fail,
+            "analyst_id": str(self.analyst_id) if self.analyst_id else None,
+            "submitted_at": self.submitted_at.isoformat() if self.submitted_at else None,
+        }
+
+
+class ResultReview(BaseModel):
+    """
+    Immutable workflow decision for a submitted TestResult.
+    """
+
+    ACTION_CHOICES = [
+        ("SUPERVISOR_REVIEW", "Supervisor Review"),
+        ("QA_APPROVE", "QA Approve"),
+        ("QA_REJECT", "QA Reject"),
+    ]
+
+    result = models.ForeignKey(
+        "results.TestResult",
+        on_delete=models.PROTECT,
+        related_name="reviews",
+    )
+
+    action = models.CharField(
+        max_length=30,
+        choices=ACTION_CHOICES,
+    )
+
+    reviewed_by = models.ForeignKey(
+        "accounts.CustomUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="result_reviews",
+    )
+
+    comments = models.TextField(blank=True)
+
+    result_snapshot = models.JSONField(
+        help_text="Immutable snapshot of the result at the time of review decision."
+    )
+
+    reviewed_at = models.DateTimeField(auto_now_add=True)
+
+    objects = ActiveManager()
+    all_objects = models.Manager()
+
+    class Meta:
+        db_table = "results_result_review"
+        ordering = ["-reviewed_at"]
+        indexes = [
+            models.Index(fields=["action"]),
+            models.Index(fields=["reviewed_at"]),
+            models.Index(fields=["result", "action"]),
+        ]
+
+    def __str__(self):
+        return f"{self.action} for {self.result_id} by {self.reviewed_by}"
+
+    def save(self, *args, **kwargs):
+        """
+        Review records are immutable once created.
+        """
+        update_fields = kwargs.get("update_fields")
+        
+        if update_fields and set(update_fields) == {"is_active", "updated_at"}:
+            super().save(*args, **kwargs)
+            return
+
+        if self.pk and ResultReview.all_objects.filter(pk=self.pk).exists():
+            raise PermissionError("Result review records cannot be modified.")
+        if self.organization_id is None and self.result_id:
+            self.organization = self.result.organization
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("Result review records cannot be deleted.")
