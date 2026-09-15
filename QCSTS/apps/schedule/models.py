@@ -45,6 +45,10 @@ class TestPoint(BaseModel):
     def __str__(self):
         return f"{self.batch.batch_number} — Month {self.month} ({self.scheduled_date})"
 
+    def save(self, *args, **kwargs):
+        self.assert_same_organization(batch=self.batch)
+        super().save(*args, **kwargs)
+
     def is_overdue(self):
         return self.status == "pending" and self.scheduled_date < timezone.localdate()
 

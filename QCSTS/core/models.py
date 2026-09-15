@@ -1,4 +1,5 @@
 import uuid
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.conf import settings
 
@@ -101,6 +102,37 @@ class BaseModel(models.Model):
 
     def __repr__(self):
         return f"<{self.__class__.__name__} id={self.id}>"
+
+    def assert_same_organization(self, **related):
+        """
+        Defense-in-depth guard against a cross-organization foreign key.
+
+        The serializer layer (core.serializers.TenantScopedModelSerializer,
+        TenantScopedPrimaryKeyRelatedField) already restricts writable FK
+        choices to the active request's organization. That closes the
+        request/response path, but nothing stops a cross-org reference from
+        a Django admin form, a management command, a data migration, or a
+        future call site that builds a model instance directly instead of
+        going through a tenant-scoped serializer. This is the model-layer
+        backstop for that: call it from ``save()`` with the related
+        instances that must share this record's organization, e.g.
+
+            self.assert_same_organization(product=self.product)
+
+        A related instance of ``None``, or one whose own organization isn't
+        set yet (legacy nullable rows from the staged Phase 1 backfill), is
+        skipped rather than treated as a mismatch.
+        """
+        for field_name, related_obj in related.items():
+            if related_obj is None:
+                continue
+            related_org_id = getattr(related_obj, "organization_id", None)
+            if related_org_id is None or self.organization_id is None:
+                continue
+            if related_org_id != self.organization_id:
+                raise ValidationError(
+                    {field_name: f"{field_name} belongs to a different organization."}
+                )
 
 
 class ActiveManager(models.Manager):

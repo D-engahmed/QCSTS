@@ -48,7 +48,11 @@ class MonographTestFactory(DjangoModelFactory):
     unit = "%"
     sequence = factory.Sequence(lambda n: n)
     created_by = factory.SubFactory(UserFactory)
-    organization = factory.LazyAttribute(lambda obj: _default_org_for_user(obj.created_by))
+    # Derived from the monograph, not an independently-created default user's
+    # org — a MonographTest must always share its monograph's organization,
+    # and deriving it any other way is how this and the parent's `monograph`
+    # SubFactory used to end up pointing at two different organizations.
+    organization = factory.LazyAttribute(lambda obj: obj.monograph.organization)
 
 
 class MonographWithTestsFactory(ApprovedMonographFactory):
@@ -74,6 +78,15 @@ class ProductFactory(DjangoModelFactory):
     strength = "500 mg"
     dosage_form = "tablet"
     description = "Test product"
-    monograph = factory.SubFactory(MonographWithTestsFactory)
     created_by = factory.SubFactory(UserFactory)
     organization = factory.LazyAttribute(lambda obj: _default_org_for_user(obj.created_by))
+    # Whatever organization this Product ends up with (default-derived above,
+    # or an explicit override the caller passes) must also be the monograph's
+    # organization — otherwise Product.monograph is a cross-tenant reference.
+    # SelfAttribute("..organization") reads the parent's *resolved* value, so
+    # this holds for both cases without the caller having to wire it by hand.
+    monograph = factory.SubFactory(
+        MonographWithTestsFactory,
+        organization=factory.SelfAttribute("..organization"),
+        created_by=factory.SelfAttribute("..created_by"),
+    )

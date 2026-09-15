@@ -74,6 +74,10 @@ class MonographTest(BaseModel):
     def __str__(self):
         return f"{self.monograph.name} — {self.name}"
 
+    def save(self, *args, **kwargs):
+        self.assert_same_organization(monograph=self.monograph)
+        super().save(*args, **kwargs)
+
 
 class Product(BaseModel):
     """
@@ -112,3 +116,7 @@ class Product(BaseModel):
 
     def __str__(self):
         return f"{self.name} {self.strength}"
+
+    def save(self, *args, **kwargs):
+        self.assert_same_organization(monograph=self.monograph)
+        super().save(*args, **kwargs)

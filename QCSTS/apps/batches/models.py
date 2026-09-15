@@ -67,6 +67,10 @@ class Batch(BaseModel):
     def __str__(self):
         return f"{self.batch_number} ({self.product.name})"
 
+    def save(self, *args, **kwargs):
+        self.assert_same_organization(product=self.product)
+        super().save(*args, **kwargs)
+
     def get_location(self):
         return f"{self.shelf}/{self.rack}/{self.position}"
 

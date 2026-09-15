@@ -45,6 +45,10 @@ class SamplePull(BaseModel):
     def __str__(self):
         return f"Pull {self.qty_pulled} from {self.batch.batch_number} at {self.pulled_at}"
 
+    def save(self, *args, **kwargs):
+        self.assert_same_organization(batch=self.batch, test_point=self.test_point)
+        super().save(*args, **kwargs)
+
 
 class LocationHistory(BaseModel):
     """
@@ -80,3 +84,7 @@ class LocationHistory(BaseModel):
 
     def __str__(self):
         return f"{self.batch.batch_number} moved to {self.new_shelf}/{self.new_rack}/{self.new_position}"
+
+    def save(self, *args, **kwargs):
+        self.assert_same_organization(batch=self.batch)
+        super().save(*args, **kwargs)

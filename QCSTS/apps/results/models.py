@@ -88,7 +88,11 @@ class TestResult(BaseModel):
             
         if self.organization_id is None and self.test_point_id:
             self.organization = self.test_point.batch.organization
-            
+
+        self.assert_same_organization(
+            test_point=self.test_point, monograph_test=self.monograph_test
+        )
+
         super().save(*args, **kwargs)
 
     def workflow_state(self):
@@ -148,6 +152,9 @@ class ResultReview(BaseModel):
             raise PermissionError("Result review records cannot be modified.")
         if self.organization_id is None and self.result_id:
             self.organization = self.result.organization
+
+        self.assert_same_organization(result=self.result)
+
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -194,6 +201,11 @@ class ResultCorrection(BaseModel):
             raise PermissionError("Correction records cannot be modified.")
         if self.organization_id is None and self.original_result_id:
             self.organization = self.original_result.organization
+
+        self.assert_same_organization(
+            original_result=self.original_result, corrected_result=self.corrected_result
+        )
+
         super().save(*args, **kwargs)
         
     def delete(self, *args, **kwargs):

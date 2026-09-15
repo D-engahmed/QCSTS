@@ -80,6 +80,7 @@ class LocationHistorySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "batch",
             "changed_by",
             "created_at",
             "old_shelf",
