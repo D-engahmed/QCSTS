@@ -48,8 +48,9 @@ class Command(BaseCommand):
     ]
 
     def handle(self, *args, **options):
-        for payload in self.PLANS:
-            code = payload.pop("code")
-            plan, created = Plan.objects.update_or_create(code=code, defaults=payload)
+        for definition in self.PLANS:
+            code = definition["code"]
+            defaults = {key: value for key, value in definition.items() if key != "code"}
+            plan, created = Plan.objects.update_or_create(code=code, defaults=defaults)
             action = "Created" if created else "Updated"
             self.stdout.write(self.style.SUCCESS(f"{action} plan: {plan.name}"))
