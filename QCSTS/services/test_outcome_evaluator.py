@@ -8,8 +8,8 @@ class OutcomeEvaluatorTests(SimpleTestCase):
         self.assertEqual(OutcomeEvaluator.evaluate("74.96", "NLT 75"), "pass")
 
     def test_nmt_uses_specification_precision(self):
-        self.assertEqual(OutcomeEvaluator.evaluate("5.04", "NMT 5.0"), "fail")
-        self.assertEqual(OutcomeEvaluator.evaluate("5.04", "NMT 5"), "fail")
+        self.assertEqual(OutcomeEvaluator.evaluate("5.04", "NMT 5.0"), "pass")
+        self.assertEqual(OutcomeEvaluator.evaluate("5.06", "NMT 5.0"), "fail")
 
     def test_range_uses_declared_precision(self):
         self.assertEqual(OutcomeEvaluator.evaluate("97.96", "98.0 - 102.0"), "pass")
