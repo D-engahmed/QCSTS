@@ -1,4 +1,4 @@
-from rest_framework.views import APIView
+from core.views import TenantScopedAPIView
 from rest_framework import status
 from django.db import transaction
 
@@ -10,18 +10,17 @@ from apps.chamber.serializers import (
     LocationHistorySerializer,
     ChangeBatchLocationSerializer,
 )
-from apps.platform.services import TenantContextService
 from core.permissions import IsAnalystOrAbove
 from core.responses import success_response
 from services.audit_service import AuditService
 
 
-class ChamberInventoryView(APIView):
+class ChamberInventoryView(TenantScopedAPIView):
     serializer_class = BatchSerializer
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph"))
+        queryset = self.tenant_qs(Batch.objects.select_related("product", "product__monograph"))
 
         study_type = request.query_params.get("study_type")
         if study_type:
@@ -30,12 +29,12 @@ class ChamberInventoryView(APIView):
         return success_response(data=BatchSerializer(queryset, many=True).data)
 
 
-class SamplePullListCreateView(APIView):
+class SamplePullListCreateView(TenantScopedAPIView):
     serializer_class = SamplePullSerializer
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = TenantContextService.scope_queryset(request, SamplePull.objects.select_related("batch", "pulled_by", "test_point"))
+        queryset = self.tenant_qs(SamplePull.objects.select_related("batch", "pulled_by", "test_point"))
 
         batch_id = request.query_params.get("batch")
         if batch_id:
@@ -44,8 +43,10 @@ class SamplePullListCreateView(APIView):
         return success_response(data=SamplePullSerializer(queryset, many=True).data)
 
     def post(self, request):
-        TenantContextService.resolve(request)
-        serializer = SamplePullSerializer(data=request.data)
+        # context is required: SamplePullSerializer scopes its batch/test_point
+        # fields to the active organization and raises without it, rather than
+        # falling back to validating against every tenant's records.
+        serializer = SamplePullSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         sample_pull = serializer.save(pulled_by=request.user, created_by=request.user, organization=request.organization)
         return success_response(
@@ -54,13 +55,14 @@ class SamplePullListCreateView(APIView):
         )
 
 
-class ChangeBatchLocationView(APIView):
+class ChangeBatchLocationView(TenantScopedAPIView):
     serializer_class = ChangeBatchLocationSerializer
     permission_classes = [IsAnalystOrAbove]
 
     def post(self, request):
-        TenantContextService.resolve(request)
-        serializer = ChangeBatchLocationSerializer(data=request.data)
+        # context is required: the batch field is tenant-scoped and raises
+        # without it, rather than resolving against every organization's batches.
+        serializer = ChangeBatchLocationSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         batch = serializer.validated_data["batch"]
@@ -104,7 +106,7 @@ class ChangeBatchLocationView(APIView):
 
 
 
-class LocationHistoryView(APIView):
+class LocationHistoryView(TenantScopedAPIView):
     serializer_class = LocationHistorySerializer
 
     """
@@ -115,10 +117,7 @@ class LocationHistoryView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request, pk):
-        TenantContextService.resolve(request)
-        history = TenantContextService.scope_queryset(
-            request,
-            LocationHistory.objects.select_related("batch").filter(
+        history = self.tenant_qs(LocationHistory.objects.select_related("batch").filter(
                 batch__organization=request.organization
             ),
         )

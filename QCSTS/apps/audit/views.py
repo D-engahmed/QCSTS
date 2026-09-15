@@ -1,14 +1,13 @@
-from rest_framework.views import APIView
+from core.views import TenantScopedAPIView
 from rest_framework import status
 
 from apps.audit.models import AuditLog
 from apps.audit.serializers import AuditLogSerializer
-from apps.platform.services import TenantContextService
 from core.permissions import IsQAManager
 from core.responses import success_response
 
 
-class AuditLogListView(APIView):
+class AuditLogListView(TenantScopedAPIView):
     serializer_class = AuditLogSerializer
 
     """
@@ -26,7 +25,7 @@ class AuditLogListView(APIView):
     permission_classes = [IsQAManager]
 
     def get(self, request):
-        queryset = TenantContextService.scope_queryset(request, AuditLog.objects)
+        queryset = self.tenant_qs(AuditLog.objects)
 
         model_name = request.query_params.get("model_name")
         action = request.query_params.get("action")
@@ -49,7 +48,7 @@ class AuditLogListView(APIView):
         return success_response(data=serializer.data)
 
 
-class AuditLogDetailView(APIView):
+class AuditLogDetailView(TenantScopedAPIView):
     serializer_class = AuditLogSerializer
 
     """
@@ -61,7 +60,7 @@ class AuditLogDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            log = TenantContextService.scope_queryset(request, AuditLog.objects).get(pk=pk)
+            log = self.tenant_qs(AuditLog.objects).get(pk=pk)
         except AuditLog.DoesNotExist:
             from core.responses import error_response
 

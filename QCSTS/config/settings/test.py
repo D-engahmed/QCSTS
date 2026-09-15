@@ -22,3 +22,9 @@ PASSWORD_HASHERS = [
 
 # Celery runs tasks immediately in tests — no worker needed
 CELERY_TASK_ALWAYS_EAGER = True
+
+# Throttles are exercised by dedicated tests that override these rates.
+# Leaving production rates on would make the rest of the suite order-dependent.
+REST_FRAMEWORK = {**REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {
+    "login": "10000/min", "signature": "10000/min", "anon": "10000/min",
+}}

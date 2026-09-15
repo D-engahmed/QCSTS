@@ -1,20 +1,18 @@
 from django.utils import timezone
-from rest_framework.views import APIView
+from core.views import TenantScopedAPIView
 
 from apps.batches.models import Batch
-from apps.platform.services import TenantContextService
 from apps.products.models import Product
 from apps.schedule.models import TestPoint
 from core.permissions import IsAnalystOrAbove
 from core.responses import success_response
 
 
-class DashboardView(APIView):
+class DashboardView(TenantScopedAPIView):
     serializer_class = None
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        TenantContextService.resolve(request)
         today = timezone.now().date()
         in_30_days = today + timezone.timedelta(days=30)
 

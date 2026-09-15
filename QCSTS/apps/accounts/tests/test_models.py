@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.utils import timezone
 import pytest
 from apps.accounts.tests.factories import UserFactory
 
@@ -9,27 +12,41 @@ class TestCustomUser:
         user = UserFactory(full_name="Ahmed Ali", email="ahmed@cqsts.com")
         assert str(user) == "Ahmed Ali (ahmed@cqsts.com)"
 
-    def test_increment_failed_attempts(self):
+    def test_failed_login_is_counted_without_disabling_the_account(self):
         user = UserFactory()
-        user.increment_failed_attempts()
+        user.register_failed_login()
         user.refresh_from_db()
         assert user.failed_login_attempts == 1
         assert user.is_active is True
+        assert user.is_locked_out is False
 
-    def test_account_locks_after_5_attempts(self):
+    def test_account_locks_for_a_window_after_5_attempts(self):
         user = UserFactory()
         for _ in range(5):
-            user.increment_failed_attempts()
+            user.register_failed_login()
         user.refresh_from_db()
-        assert user.is_active is False
+        assert user.is_locked_out is True
+        # is_active is the soft-delete flag and must stay untouched: a locked
+        # account and a deleted account must remain distinguishable.
+        assert user.is_active is True
 
-    def test_reset_failed_attempts(self):
+    def test_lockout_expires_on_its_own(self):
         user = UserFactory()
-        user.increment_failed_attempts()
-        user.increment_failed_attempts()
+        for _ in range(5):
+            user.register_failed_login()
+        user.locked_until = timezone.now() - timedelta(seconds=1)
+        user.save(update_fields=["locked_until"])
+        assert user.is_locked_out is False
+
+    def test_reset_clears_counter_and_lock(self):
+        user = UserFactory()
+        for _ in range(5):
+            user.register_failed_login()
         user.reset_failed_attempts()
         user.refresh_from_db()
         assert user.failed_login_attempts == 0
+        assert user.locked_until is None
+        assert user.is_locked_out is False
 
     def test_user_has_uuid_id(self):
         user = UserFactory()

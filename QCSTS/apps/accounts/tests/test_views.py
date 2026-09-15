@@ -45,21 +45,33 @@ class TestLoginView:
         assert response.status_code == 401
         assert response.data["success"] is False
 
-    def test_login_nonexistent_user(self, client):
-        response = client.post(
+    def test_login_nonexistent_user_is_indistinguishable_from_wrong_password(self, client, analyst):
+        unknown = client.post(
             "/api/v1/auth/login/", {"email": "nobody@cqsts.com", "password": "TestPass123!"}
         )
-        assert response.status_code == 400
+        wrong_pw = client.post(
+            "/api/v1/auth/login/", {"email": analyst.email, "password": "WrongPassword!"}
+        )
+        # Identical status AND identical body: no enumeration oracle.
+        assert unknown.status_code == wrong_pw.status_code == 401
+        assert unknown.data == wrong_pw.data
+
+    def test_login_locked_account_leaks_no_account_state(self, client, analyst):
+        for _ in range(5):
+            analyst.register_failed_login()
+        response = client.post(
+            "/api/v1/auth/login/", {"email": analyst.email, "password": "TestPass123!"}
+        )
+        assert response.status_code == 401
         assert response.data["success"] is False
 
-    def test_login_locked_account(self, client, analyst):
+    def test_deactivated_account_cannot_log_in(self, client, analyst):
         analyst.is_active = False
         analyst.save()
         response = client.post(
             "/api/v1/auth/login/", {"email": analyst.email, "password": "TestPass123!"}
         )
-        assert response.status_code == 403
-        assert response.data["success"] is False
+        assert response.status_code == 401
 
 
 @pytest.mark.django_db
@@ -128,13 +140,20 @@ class TestUserDetailView:
         assert response.status_code == 200
         assert response.data["data"]["email"] == user.email
 
-    def test_admin_can_deactivate_user(self, admin):
+    def test_admin_revokes_org_membership_not_the_global_account(self, admin):
         user = UserFactory()
         c = auth_client(admin)
         response = c.delete(f"/api/v1/auth/users/{user.id}/")
         assert response.status_code == 200
         user.refresh_from_db()
-        assert user.is_active is False
+        # The person keeps their identity and any membership at other tenants.
+        assert user.is_active is True
+        assert user.memberships.filter(is_active=True).exists() is False
+
+    def test_admin_cannot_revoke_their_own_membership(self, admin):
+        c = auth_client(admin)
+        response = c.delete(f"/api/v1/auth/users/{admin.id}/")
+        assert response.status_code == 400
 
     def test_admin_can_update_user(self, admin):
         user = UserFactory()

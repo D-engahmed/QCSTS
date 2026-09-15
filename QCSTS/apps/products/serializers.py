@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from core.serializers import TenantScopedModelSerializer
 from apps.products.models import Monograph, MonographTest, Product
 from core.exceptions import MonographAlreadyApproved
 
@@ -42,7 +43,7 @@ class MonographCreateSerializer(serializers.ModelSerializer):
         fields = ["name", "version", "effective_date", "status"]
 
 
-class ProductSerializer(serializers.ModelSerializer):
+class ProductSerializer(TenantScopedModelSerializer):
     monograph_name = serializers.SerializerMethodField()
 
     class Meta:

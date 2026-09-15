@@ -1,5 +1,8 @@
 import uuid
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 class CustomUserManager(BaseUserManager):
@@ -34,6 +37,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     failed_login_attempts = models.IntegerField(default=0)
+    locked_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Set by repeated failed logins. Expires on its own — see LOCKOUT_MINUTES.",
+    )
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     password_changed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -51,12 +59,25 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f"{self.full_name} ({self.email})"
 
-    def increment_failed_attempts(self):
+    # Repeated failures lock the account for a WINDOW. They must not set
+    # is_active=False: that flag is the soft-delete marker, so a permanent
+    # lockout made a locked account indistinguishable from a deleted one and
+    # handed anyone who knew an email address a free, irreversible denial of
+    # service. A self-expiring window stops brute force without that.
+    LOCKOUT_THRESHOLD = 5
+    LOCKOUT_MINUTES = 15
+
+    @property
+    def is_locked_out(self):
+        return bool(self.locked_until and self.locked_until > timezone.now())
+
+    def register_failed_login(self):
         self.failed_login_attempts += 1
-        if self.failed_login_attempts >= 5:
-            self.is_active = False
-        self.save(update_fields=["failed_login_attempts", "is_active"])
+        if self.failed_login_attempts >= self.LOCKOUT_THRESHOLD:
+            self.locked_until = timezone.now() + timedelta(minutes=self.LOCKOUT_MINUTES)
+        self.save(update_fields=["failed_login_attempts", "locked_until"])
 
     def reset_failed_attempts(self):
         self.failed_login_attempts = 0
-        self.save(update_fields=["failed_login_attempts"])
+        self.locked_until = None
+        self.save(update_fields=["failed_login_attempts", "locked_until"])

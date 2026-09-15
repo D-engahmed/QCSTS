@@ -1,4 +1,4 @@
-from rest_framework.views import APIView
+from core.views import TenantScopedAPIView
 from rest_framework import status
 from django.utils import timezone
 
@@ -12,20 +12,18 @@ from apps.products.serializers import (
 from core.permissions import IsAnalystOrAbove, IsQAManager
 from core.responses import success_response, error_response
 from core.exceptions import MonographAlreadyApproved
-from apps.platform.services import TenantContextService
 from services.audit_service import AuditService
 
 
-class MonographListCreateView(APIView):
+class MonographListCreateView(TenantScopedAPIView):
     serializer_class = MonographSerializer
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by"))
+        queryset = self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by"))
         return success_response(data=MonographSerializer(queryset, many=True).data)
 
     def post(self, request):
-        TenantContextService.resolve(request)
         serializer = MonographCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         monograph = serializer.save(created_by=request.user, organization=request.organization)
@@ -44,13 +42,13 @@ class MonographListCreateView(APIView):
         )
 
 
-class MonographDetailView(APIView):
+class MonographDetailView(TenantScopedAPIView):
     serializer_class = MonographSerializer
     permission_classes = [IsAnalystOrAbove]
 
     def get_object(self, request, pk):
         try:
-            return TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
+            return self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
         except Monograph.DoesNotExist:
             return None
 
@@ -85,13 +83,13 @@ class MonographDetailView(APIView):
         return success_response(data=MonographSerializer(monograph).data)
 
 
-class MonographApproveView(APIView):
+class MonographApproveView(TenantScopedAPIView):
     serializer_class = MonographSerializer
     permission_classes = [IsQAManager]
 
     def post(self, request, pk):
         try:
-            monograph = TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
+            monograph = self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
         except Monograph.DoesNotExist:
             return error_response({"detail": "Monograph not found."}, status.HTTP_404_NOT_FOUND)
 
@@ -119,13 +117,13 @@ class MonographApproveView(APIView):
         )
 
 
-class MonographTestListCreateView(APIView):
+class MonographTestListCreateView(TenantScopedAPIView):
     serializer_class = MonographTestSerializer
     permission_classes = [IsAnalystOrAbove]
 
     def get_monograph(self, request, pk):
         try:
-            return TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
+            return self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
         except Monograph.DoesNotExist:
             return None
 
@@ -161,17 +159,16 @@ class MonographTestListCreateView(APIView):
         )
 
 
-class ProductListCreateView(APIView):
+class ProductListCreateView(TenantScopedAPIView):
     serializer_class = ProductSerializer
     # Allow all authenticated users (analyst, supervisor, qa_manager, admin)
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = TenantContextService.scope_queryset(request, Product.objects.select_related("monograph", "created_by"))
+        queryset = self.tenant_qs(Product.objects.select_related("monograph", "created_by"))
         return success_response(data=ProductSerializer(queryset, many=True).data)
 
     def post(self, request):
-        TenantContextService.resolve(request)
         serializer = ProductSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         product = serializer.save(created_by=request.user, organization=request.organization)
@@ -190,13 +187,13 @@ class ProductListCreateView(APIView):
         )
 
 
-class ProductDetailView(APIView):
+class ProductDetailView(TenantScopedAPIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAnalystOrAbove]
 
     def get_object(self, request, pk):
         try:
-            return TenantContextService.scope_queryset(request, Product.objects.select_related("monograph", "created_by")).get(pk=pk)
+            return self.tenant_qs(Product.objects.select_related("monograph", "created_by")).get(pk=pk)
         except Product.DoesNotExist:
             return None
 

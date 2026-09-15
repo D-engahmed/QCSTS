@@ -1,0 +1,1385 @@
+diff --git a/QCSTS/apps/accounts/models.py b/QCSTS/apps/accounts/models.py
+index 2dc5320..cde0a4f 100644
+--- a/QCSTS/apps/accounts/models.py
++++ b/QCSTS/apps/accounts/models.py
+@@ -1,5 +1,8 @@
+ import uuid
++from datetime import timedelta
++
+ from django.db import models
++from django.utils import timezone
+ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+ 
+ class CustomUserManager(BaseUserManager):
+@@ -34,6 +37,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
+     is_active = models.BooleanField(default=True)
+     is_staff = models.BooleanField(default=False)
+     failed_login_attempts = models.IntegerField(default=0)
++    locked_until = models.DateTimeField(
++        null=True,
++        blank=True,
++        help_text="Set by repeated failed logins. Expires on its own — see LOCKOUT_MINUTES.",
++    )
+     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+     password_changed_at = models.DateTimeField(null=True, blank=True)
+     created_at = models.DateTimeField(auto_now_add=True)
+@@ -51,12 +59,25 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
+     def __str__(self):
+         return f"{self.full_name} ({self.email})"
+ 
+-    def increment_failed_attempts(self):
++    # Repeated failures lock the account for a WINDOW. They must not set
++    # is_active=False: that flag is the soft-delete marker, so a permanent
++    # lockout made a locked account indistinguishable from a deleted one and
++    # handed anyone who knew an email address a free, irreversible denial of
++    # service. A self-expiring window stops brute force without that.
++    LOCKOUT_THRESHOLD = 5
++    LOCKOUT_MINUTES = 15
++
++    @property
++    def is_locked_out(self):
++        return bool(self.locked_until and self.locked_until > timezone.now())
++
++    def register_failed_login(self):
+         self.failed_login_attempts += 1
+-        if self.failed_login_attempts >= 5:
+-            self.is_active = False
+-        self.save(update_fields=["failed_login_attempts", "is_active"])
++        if self.failed_login_attempts >= self.LOCKOUT_THRESHOLD:
++            self.locked_until = timezone.now() + timedelta(minutes=self.LOCKOUT_MINUTES)
++        self.save(update_fields=["failed_login_attempts", "locked_until"])
+ 
+     def reset_failed_attempts(self):
+         self.failed_login_attempts = 0
+-        self.save(update_fields=["failed_login_attempts"])
+\ No newline at end of file
++        self.locked_until = None
++        self.save(update_fields=["failed_login_attempts", "locked_until"])
+diff --git a/QCSTS/apps/accounts/serializers.py b/QCSTS/apps/accounts/serializers.py
+index 1f98713..91d517b 100644
+--- a/QCSTS/apps/accounts/serializers.py
++++ b/QCSTS/apps/accounts/serializers.py
+@@ -1,19 +1,23 @@
++from django.contrib.auth.hashers import check_password, make_password
+ from rest_framework import serializers
++
+ from apps.accounts.models import CustomUser
+-from core.exceptions import AccountLockedError, InvalidCredentialsError
++from core.exceptions import InvalidCredentialsError
++
++# Burned once on every unknown-email login so that the response time does not
++# reveal whether the address exists. Computed at import, never used as a secret.
++_DUMMY_HASH = make_password("qcsts-timing-equaliser")
+ 
+ 
+ class LoginSerializer(serializers.Serializer):
+     """
+     Validates email + password at /api/v1/auth/login/.
+ 
+-    - Unknown email            -> plain ValidationError (400)
+-    - Correct email, inactive  -> AccountLockedError (403)
+-    - Correct email, wrong pw  -> InvalidCredentialsError (401), also
+-                                   increments failed_login_attempts
+-                                   (5 strikes auto-deactivates the account)
+-    - Correct email + password -> validated_data["user"] is set,
+-                                   failed_login_attempts is reset to 0
++    Every failure mode — unknown email, wrong password, locked account,
++    deactivated account — returns the SAME 401. The previous version returned
++    400 / 401 / 403 respectively, which let an unauthenticated caller confirm
++    that an address existed and read its account state. That is an
++    enumeration oracle on a customer's staff directory.
+     """
+ 
+     email = serializers.EmailField()
+@@ -23,16 +27,18 @@ class LoginSerializer(serializers.Serializer):
+         email = data.get("email")
+         password = data.get("password")
+ 
+-        try:
+-            user = CustomUser.objects.get(email=email)
+-        except CustomUser.DoesNotExist:
+-            raise serializers.ValidationError("Invalid email or password.")
++        user = CustomUser.objects.filter(email=email).first()
++
++        if user is None:
++            check_password(password, _DUMMY_HASH)
++            raise InvalidCredentialsError()
+ 
+-        if not user.is_active:
+-            raise AccountLockedError()
++        if not user.is_active or user.is_locked_out:
++            check_password(password, _DUMMY_HASH)
++            raise InvalidCredentialsError()
+ 
+         if not user.check_password(password):
+-            user.increment_failed_attempts()
++            user.register_failed_login()
+             raise InvalidCredentialsError()
+ 
+         user.reset_failed_attempts()
+@@ -41,13 +47,6 @@ class LoginSerializer(serializers.Serializer):
+ 
+ 
+ class ChangePasswordSerializer(serializers.Serializer):
+-    """
+-    Validates a self-service password change at
+-    /api/v1/auth/change-password/. Requires the request's current
+-    user (passed in via context={"request": request}) to confirm
+-    their current password before setting a new one.
+-    """
+-
+     current_password = serializers.CharField(write_only=True, trim_whitespace=False)
+     new_password = serializers.CharField(write_only=True, min_length=12, trim_whitespace=False)
+ 
+@@ -57,19 +56,68 @@ class ChangePasswordSerializer(serializers.Serializer):
+             raise serializers.ValidationError("Current password is incorrect.")
+         return value
+ 
++    def validate(self, data):
++        if data["current_password"] == data["new_password"]:
++            raise serializers.ValidationError(
++                {"new_password": "The new password must differ from the current one."}
++            )
++        return data
++
+ 
+ class UserSerializer(serializers.ModelSerializer):
++    """
++    Read view of a user.
++
++    ``role`` is READ ONLY. It was previously writable through
++    UserDetailView.patch, so any admin could set any user's role to "admin" —
++    privilege escalation in one PATCH. Authority now lives on Membership.role
++    (see core.permissions); this field is a display mirror only and changing it
++    grants nothing.
++    """
++
++    organization_role = serializers.SerializerMethodField()
++
+     class Meta:
+         model = CustomUser
+-        fields = ["id", "email", "full_name", "role", "is_active", "created_at"]
+-        read_only_fields = ["id", "created_at"]
++        fields = [
++            "id",
++            "email",
++            "full_name",
++            "role",
++            "organization_role",
++            "is_active",
++            "created_at",
++        ]
++        read_only_fields = ["id", "email", "role", "organization_role", "created_at"]
++
++    def get_organization_role(self, obj):
++        """The role that actually governs access, within the active organization."""
++        organization = self.context.get("organization")
++        if organization is None:
++            return None
++        membership = obj.memberships.filter(organization=organization).select_related("role").first()
++        return membership.role.name if membership else None
++
+ 
+ class CreateUserSerializer(serializers.ModelSerializer):
+     password = serializers.CharField(write_only=True, min_length=12)
++    role = serializers.CharField(write_only=True, required=False, default="analyst")
+ 
+     class Meta:
+         model = CustomUser
+         fields = ["email", "full_name", "role", "password"]
+ 
+-    def create(self, validated_data):
+-        return CustomUser.objects.create_user(**validated_data)
+\ No newline at end of file
++    def validate_role(self, value):
++        from core.permissions import ROLE_RANK
++
++        value = (value or "").strip().lower()
++        if value not in ROLE_RANK:
++            raise serializers.ValidationError(
++                f"Unknown role. Choose one of: {', '.join(sorted(ROLE_RANK))}."
++            )
++        return value
++
++    def validate_email(self, value):
++        if CustomUser.objects.filter(email__iexact=value).exists():
++            raise serializers.ValidationError("A user with this email already exists.")
++        return value
+diff --git a/QCSTS/apps/accounts/tests/test_models.py b/QCSTS/apps/accounts/tests/test_models.py
+index e3a33a9..bfb5044 100644
+--- a/QCSTS/apps/accounts/tests/test_models.py
++++ b/QCSTS/apps/accounts/tests/test_models.py
+@@ -1,3 +1,6 @@
++from datetime import timedelta
++
++from django.utils import timezone
+ import pytest
+ from apps.accounts.tests.factories import UserFactory
+ 
+@@ -9,27 +12,41 @@ class TestCustomUser:
+         user = UserFactory(full_name="Ahmed Ali", email="ahmed@cqsts.com")
+         assert str(user) == "Ahmed Ali (ahmed@cqsts.com)"
+ 
+-    def test_increment_failed_attempts(self):
++    def test_failed_login_is_counted_without_disabling_the_account(self):
+         user = UserFactory()
+-        user.increment_failed_attempts()
++        user.register_failed_login()
+         user.refresh_from_db()
+         assert user.failed_login_attempts == 1
+         assert user.is_active is True
++        assert user.is_locked_out is False
+ 
+-    def test_account_locks_after_5_attempts(self):
++    def test_account_locks_for_a_window_after_5_attempts(self):
+         user = UserFactory()
+         for _ in range(5):
+-            user.increment_failed_attempts()
++            user.register_failed_login()
+         user.refresh_from_db()
+-        assert user.is_active is False
++        assert user.is_locked_out is True
++        # is_active is the soft-delete flag and must stay untouched: a locked
++        # account and a deleted account must remain distinguishable.
++        assert user.is_active is True
++
++    def test_lockout_expires_on_its_own(self):
++        user = UserFactory()
++        for _ in range(5):
++            user.register_failed_login()
++        user.locked_until = timezone.now() - timedelta(seconds=1)
++        user.save(update_fields=["locked_until"])
++        assert user.is_locked_out is False
+ 
+-    def test_reset_failed_attempts(self):
++    def test_reset_clears_counter_and_lock(self):
+         user = UserFactory()
+-        user.increment_failed_attempts()
+-        user.increment_failed_attempts()
++        for _ in range(5):
++            user.register_failed_login()
+         user.reset_failed_attempts()
+         user.refresh_from_db()
+         assert user.failed_login_attempts == 0
++        assert user.locked_until is None
++        assert user.is_locked_out is False
+ 
+     def test_user_has_uuid_id(self):
+         user = UserFactory()
+diff --git a/QCSTS/apps/accounts/tests/test_views.py b/QCSTS/apps/accounts/tests/test_views.py
+index f289e9f..d4e6655 100644
+--- a/QCSTS/apps/accounts/tests/test_views.py
++++ b/QCSTS/apps/accounts/tests/test_views.py
+@@ -45,21 +45,33 @@ class TestLoginView:
+         assert response.status_code == 401
+         assert response.data["success"] is False
+ 
+-    def test_login_nonexistent_user(self, client):
+-        response = client.post(
++    def test_login_nonexistent_user_is_indistinguishable_from_wrong_password(self, client, analyst):
++        unknown = client.post(
+             "/api/v1/auth/login/", {"email": "nobody@cqsts.com", "password": "TestPass123!"}
+         )
+-        assert response.status_code == 400
++        wrong_pw = client.post(
++            "/api/v1/auth/login/", {"email": analyst.email, "password": "WrongPassword!"}
++        )
++        # Identical status AND identical body: no enumeration oracle.
++        assert unknown.status_code == wrong_pw.status_code == 401
++        assert unknown.data == wrong_pw.data
++
++    def test_login_locked_account_leaks_no_account_state(self, client, analyst):
++        for _ in range(5):
++            analyst.register_failed_login()
++        response = client.post(
++            "/api/v1/auth/login/", {"email": analyst.email, "password": "TestPass123!"}
++        )
++        assert response.status_code == 401
+         assert response.data["success"] is False
+ 
+-    def test_login_locked_account(self, client, analyst):
++    def test_deactivated_account_cannot_log_in(self, client, analyst):
+         analyst.is_active = False
+         analyst.save()
+         response = client.post(
+             "/api/v1/auth/login/", {"email": analyst.email, "password": "TestPass123!"}
+         )
+-        assert response.status_code == 403
+-        assert response.data["success"] is False
++        assert response.status_code == 401
+ 
+ 
+ @pytest.mark.django_db
+@@ -128,13 +140,20 @@ class TestUserDetailView:
+         assert response.status_code == 200
+         assert response.data["data"]["email"] == user.email
+ 
+-    def test_admin_can_deactivate_user(self, admin):
++    def test_admin_revokes_org_membership_not_the_global_account(self, admin):
+         user = UserFactory()
+         c = auth_client(admin)
+         response = c.delete(f"/api/v1/auth/users/{user.id}/")
+         assert response.status_code == 200
+         user.refresh_from_db()
+-        assert user.is_active is False
++        # The person keeps their identity and any membership at other tenants.
++        assert user.is_active is True
++        assert user.memberships.filter(is_active=True).exists() is False
++
++    def test_admin_cannot_revoke_their_own_membership(self, admin):
++        c = auth_client(admin)
++        response = c.delete(f"/api/v1/auth/users/{admin.id}/")
++        assert response.status_code == 400
+ 
+     def test_admin_can_update_user(self, admin):
+         user = UserFactory()
+diff --git a/QCSTS/apps/accounts/views.py b/QCSTS/apps/accounts/views.py
+index bb8ea36..cfb139e 100644
+--- a/QCSTS/apps/accounts/views.py
++++ b/QCSTS/apps/accounts/views.py
+@@ -1,46 +1,58 @@
+-from rest_framework.views import APIView
+-from rest_framework.permissions import IsAuthenticated, AllowAny
+-from rest_framework_simplejwt.tokens import RefreshToken
+-from rest_framework_simplejwt.exceptions import TokenError
++from django.db import transaction
+ from rest_framework import status
++from rest_framework.permissions import AllowAny, IsAuthenticated
++from rest_framework.throttling import ScopedRateThrottle
++from rest_framework_simplejwt.exceptions import TokenError
++from rest_framework_simplejwt.tokens import RefreshToken
+ 
+ from apps.accounts.models import CustomUser
+ from apps.accounts.serializers import (
++    ChangePasswordSerializer,
++    CreateUserSerializer,
+     LoginSerializer,
+     UserSerializer,
+-    CreateUserSerializer,
+-    ChangePasswordSerializer,
+ )
+-from core.responses import success_response, error_response
++from apps.platform.models import Membership, Role
+ from core.permissions import IsAdmin
+-from core.exceptions import AccountLockedError
++from core.responses import error_response, success_response
++from core.views import PublicAPIView, TenantExemptAPIView, TenantScopedAPIView
++from services.audit_service import AuditService
+ 
+ 
+-class LoginView(APIView):
+-    serializer_class = LoginSerializer
+-
++class LoginView(PublicAPIView):
+     """
+     POST /api/v1/auth/login/
+-    Accepts email + password, returns JWT tokens + user object.
+-    No authentication required — this is the entry point.
++
++    Tenant exempt: the caller has no organization context until they are
++    authenticated. Throttled, because the account-lockout rule alone is not a
++    brute-force defence — it is a denial-of-service lever if the attacker can
++    hammer it for free.
+     """
+ 
++    serializer_class = LoginSerializer
+     permission_classes = [AllowAny]
++    throttle_classes = [ScopedRateThrottle]
++    throttle_scope = "login"
+ 
+     def post(self, request):
+         serializer = LoginSerializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+-
+         user = serializer.validated_data["user"]
+ 
+-        # Generate JWT tokens
+         refresh = RefreshToken.for_user(user)
+-
+-        # Store last login IP
+         ip = request.META.get("REMOTE_ADDR")
+         user.last_login_ip = ip
+         user.save(update_fields=["last_login_ip"])
+ 
++        AuditService.log(
++            performed_by=user,
++            action="LOGIN",
++            model_name="CustomUser",
++            object_id=user.id,
++            object_repr=str(user),
++            ip_address=ip,
++        )
++
+         return success_response(
+             data={
+                 "access": str(refresh.access_token),
+@@ -51,33 +63,33 @@ class LoginView(APIView):
+         )
+ 
+ 
+-class LogoutView(APIView):
+-    serializer_class = LoginSerializer
+-
+-    """
+-    POST /api/v1/auth/logout/
+-    Blacklists the refresh token so it cannot be reused.
+-    """
++class LogoutView(TenantExemptAPIView):
++    """POST /api/v1/auth/logout/ — blacklists the refresh token. No org context needed."""
+ 
+     permission_classes = [IsAuthenticated]
+ 
+     def post(self, request):
++        refresh_token = request.data.get("refresh")
++        if not refresh_token:
++            return error_response({"detail": "Refresh token is required."}, status.HTTP_400_BAD_REQUEST)
+         try:
+-            refresh_token = request.data.get("refresh")
+-            token = RefreshToken(refresh_token)
+-            token.blacklist()
++            RefreshToken(refresh_token).blacklist()
+         except TokenError:
+-            pass  # already blacklisted or invalid — still return 200
++            return error_response({"detail": "Invalid or expired token."}, status.HTTP_400_BAD_REQUEST)
++
++        AuditService.log(
++            performed_by=request.user,
++            action="LOGOUT",
++            model_name="CustomUser",
++            object_id=request.user.id,
++            object_repr=str(request.user),
++            ip_address=request.META.get("REMOTE_ADDR"),
++        )
+         return success_response(message="Logged out successfully.")
+ 
+ 
+-class MeView(APIView):
+-    serializer_class = UserSerializer
+-
+-    """
+-    GET /api/v1/auth/me/
+-    Returns the currently logged-in user's profile.
+-    """
++class MeView(TenantExemptAPIView):
++    """GET /api/v1/auth/me/ — a user reading their own record, across all their orgs."""
+ 
+     permission_classes = [IsAuthenticated]
+ 
+@@ -85,72 +97,168 @@ class MeView(APIView):
+         return success_response(data=UserSerializer(request.user).data)
+ 
+ 
+-class UserListCreateView(APIView):
++class ChangePasswordView(TenantExemptAPIView):
++    """POST /api/v1/auth/change-password/ — self-service, no org context needed."""
++
++    serializer_class = ChangePasswordSerializer
++    permission_classes = [IsAuthenticated]
++
++    def post(self, request):
++        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
++        serializer.is_valid(raise_exception=True)
++        user = request.user
++        user.set_password(serializer.validated_data["new_password"])
++        user.save(update_fields=["password"])
++        return success_response(message="Password changed successfully.")
++
++
++class UserListCreateView(TenantScopedAPIView):
++    """
++    GET  /api/v1/auth/users/  — users who hold a membership in the ACTIVE org.
++    POST /api/v1/auth/users/  — create a user and grant them membership here.
++
++    This endpoint previously returned CustomUser.objects.all(): every user of
++    every tenant, with names and email addresses, to anyone holding the global
++    "admin" string. That was the platform's largest cross-tenant leak.
++    """
++
+     permission_classes = [IsAdmin]
++
+     def get(self, request):
+-        users = CustomUser.objects.all()
+-        return success_response(data=UserSerializer(users, many=True).data)
++        users = (
++            CustomUser.objects.filter(
++                memberships__organization=request.organization,
++                memberships__is_active=True,
++            )
++            .distinct()
++            .order_by("-created_at")
++        )
++        return success_response(
++            data=UserSerializer(
++                users, many=True, context={"organization": request.organization}
++            ).data
++        )
+ 
++    @transaction.atomic
+     def post(self, request):
+         serializer = CreateUserSerializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+-        user = serializer.save()
+-        return success_response(data=UserSerializer(user).data, status_code=status.HTTP_201_CREATED)
++        data = serializer.validated_data
++        role_name = data.pop("role", "analyst")
++
++        user = CustomUser.objects.create_user(**data, role=role_name)
++
++        role, _ = Role.objects.get_or_create(
++            organization=request.organization, name=role_name
++        )
++        Membership.objects.create(
++            user=user, organization=request.organization, role=role
++        )
++
++        AuditService.log(
++            performed_by=request.user,
++            action="CREATE",
++            model_name="CustomUser",
++            object_id=user.id,
++            object_repr=str(user),
++            new_value={"email": user.email, "role": role_name},
++            ip_address=request.META.get("REMOTE_ADDR"),
++            organization=request.organization,
++        )
++        return success_response(
++            data=UserSerializer(user, context={"organization": request.organization}).data,
++            status_code=status.HTTP_201_CREATED,
++        )
+ 
+-class UserDetailView(APIView):
+-    serializer_class = UserSerializer
+ 
++class UserDetailView(TenantScopedAPIView):
+     """
+-    GET    /api/v1/auth/users/<id>/  — get user detail (admin only)
+-    PATCH  /api/v1/auth/users/<id>/  — update user (admin only)
+-    DELETE /api/v1/auth/users/<id>/  — deactivate user (admin only)
++    GET    /api/v1/auth/users/<id>/  — org-scoped read
++    PATCH  /api/v1/auth/users/<id>/  — profile fields only; role is read-only
++    DELETE /api/v1/auth/users/<id>/  — revokes membership in the ACTIVE org
++
++    DELETE no longer sets user.is_active=False. In a multi-tenant platform an
++    admin at company A must not be able to disable a person's access at
++    company B. Revoking the membership is the correct blast radius.
++
++    Role changes are deliberately NOT available here. They need their own
++    audited, signature-backed endpoint (see the "Permission changes" audit item
++    in the gap checklist); a writable role on a profile PATCH was how privilege
++    escalation got in last time.
+     """
+ 
++    serializer_class = UserSerializer
+     permission_classes = [IsAdmin]
+ 
+-    def get_object(self, pk):
+-        try:
+-            return CustomUser.objects.get(pk=pk)
+-        except CustomUser.DoesNotExist:
+-            return None
++    def get_membership(self, pk):
++        return (
++            Membership.objects.select_related("user", "role")
++            .filter(user_id=pk, organization=self.request.organization)
++            .first()
++        )
+ 
+     def get(self, request, pk):
+-        user = self.get_object(pk)
+-        if not user:
++        membership = self.get_membership(pk)
++        if not membership:
+             return error_response({"detail": "User not found."}, status.HTTP_404_NOT_FOUND)
+-        return success_response(data=UserSerializer(user).data)
++        return success_response(
++            data=UserSerializer(
++                membership.user, context={"organization": request.organization}
++            ).data
++        )
+ 
+     def patch(self, request, pk):
+-        user = self.get_object(pk)
+-        if not user:
++        membership = self.get_membership(pk)
++        if not membership:
+             return error_response({"detail": "User not found."}, status.HTTP_404_NOT_FOUND)
+-        serializer = UserSerializer(user, data=request.data, partial=True)
++
++        before = {"full_name": membership.user.full_name}
++        serializer = UserSerializer(
++            membership.user,
++            data=request.data,
++            partial=True,
++            context={"organization": request.organization},
++        )
+         serializer.is_valid(raise_exception=True)
+-        serializer.save()
+-        return success_response(data=UserSerializer(user).data)
++        user = serializer.save()
++
++        AuditService.log(
++            performed_by=request.user,
++            action="UPDATE",
++            model_name="CustomUser",
++            object_id=user.id,
++            object_repr=str(user),
++            old_value=before,
++            new_value={"full_name": user.full_name},
++            ip_address=request.META.get("REMOTE_ADDR"),
++            organization=request.organization,
++        )
++        return success_response(
++            data=UserSerializer(user, context={"organization": request.organization}).data
++        )
+ 
+     def delete(self, request, pk):
+-        user = self.get_object(pk)
+-        if not user:
++        membership = self.get_membership(pk)
++        if not membership:
+             return error_response({"detail": "User not found."}, status.HTTP_404_NOT_FOUND)
+-        user.is_active = False
+-        user.save(update_fields=["is_active"])
+-        return success_response(message="User deactivated successfully.")
+-
+-
+-class ChangePasswordView(APIView):
+-    serializer_class = ChangePasswordSerializer
+-
+-    """
+-    POST /api/v1/auth/change-password/
+-    Allows a logged-in user to change their own password.
+-    """
+-
+-    permission_classes = [IsAuthenticated]
+-
+-    def post(self, request):
+-        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+-        serializer.is_valid(raise_exception=True)
+-        request.user.set_password(serializer.validated_data["new_password"])
+-        request.user.save()
+-        return success_response(message="Password changed successfully.")
++        if membership.user_id == request.user.id:
++            return error_response(
++                {"detail": "You cannot revoke your own membership."},
++                status.HTTP_400_BAD_REQUEST,
++            )
++
++        membership.is_active = False
++        membership.save(update_fields=["is_active"])
++
++        AuditService.log(
++            performed_by=request.user,
++            action="DELETE",
++            model_name="Membership",
++            object_id=membership.id,
++            object_repr=str(membership),
++            old_value={"is_active": True},
++            new_value={"is_active": False},
++            ip_address=request.META.get("REMOTE_ADDR"),
++            organization=request.organization,
++        )
++        return success_response(message="Organization access revoked.")
+diff --git a/QCSTS/apps/audit/views.py b/QCSTS/apps/audit/views.py
+index 1cfdba6..c9c7bd6 100644
+--- a/QCSTS/apps/audit/views.py
++++ b/QCSTS/apps/audit/views.py
+@@ -1,14 +1,13 @@
+-from rest_framework.views import APIView
++from core.views import TenantScopedAPIView
+ from rest_framework import status
+ 
+ from apps.audit.models import AuditLog
+ from apps.audit.serializers import AuditLogSerializer
+-from apps.platform.services import TenantContextService
+ from core.permissions import IsQAManager
+ from core.responses import success_response
+ 
+ 
+-class AuditLogListView(APIView):
++class AuditLogListView(TenantScopedAPIView):
+     serializer_class = AuditLogSerializer
+ 
+     """
+@@ -26,7 +25,7 @@ class AuditLogListView(APIView):
+     permission_classes = [IsQAManager]
+ 
+     def get(self, request):
+-        queryset = TenantContextService.scope_queryset(request, AuditLog.objects)
++        queryset = self.tenant_qs(AuditLog.objects)
+ 
+         model_name = request.query_params.get("model_name")
+         action = request.query_params.get("action")
+@@ -49,7 +48,7 @@ class AuditLogListView(APIView):
+         return success_response(data=serializer.data)
+ 
+ 
+-class AuditLogDetailView(APIView):
++class AuditLogDetailView(TenantScopedAPIView):
+     serializer_class = AuditLogSerializer
+ 
+     """
+@@ -61,7 +60,7 @@ class AuditLogDetailView(APIView):
+ 
+     def get(self, request, pk):
+         try:
+-            log = TenantContextService.scope_queryset(request, AuditLog.objects).get(pk=pk)
++            log = self.tenant_qs(AuditLog.objects).get(pk=pk)
+         except AuditLog.DoesNotExist:
+             from core.responses import error_response
+ 
+diff --git a/QCSTS/apps/batches/views.py b/QCSTS/apps/batches/views.py
+index 8da491e..2ae035b 100644
+--- a/QCSTS/apps/batches/views.py
++++ b/QCSTS/apps/batches/views.py
+@@ -1,15 +1,14 @@
+-from rest_framework.views import APIView
++from core.views import TenantScopedAPIView
+ from rest_framework import status
+ 
+ from apps.batches.models import Batch
+ from apps.batches.serializers import BatchSerializer
+-from apps.platform.services import TenantContextService
+ from core.permissions import IsAnalystOrAbove
+ from core.responses import success_response, error_response
+ from services.audit_service import AuditService
+ 
+ 
+-class BatchListCreateView(APIView):
++class BatchListCreateView(TenantScopedAPIView):
+     serializer_class = BatchSerializer
+ 
+     """
+@@ -20,7 +19,7 @@ class BatchListCreateView(APIView):
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get(self, request):
+-        queryset = TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph"))
++        queryset = self.tenant_qs(Batch.objects.select_related("product", "product__monograph"))
+ 
+         product_id = request.query_params.get("product")
+         status_filter = request.query_params.get("status")
+@@ -36,7 +35,6 @@ class BatchListCreateView(APIView):
+         return success_response(data=BatchSerializer(queryset, many=True).data)
+ 
+     def post(self, request):
+-        TenantContextService.resolve(request)
+         serializer = BatchSerializer(data=request.data, context={"request": request})
+         serializer.is_valid(raise_exception=True)
+         batch = serializer.save(created_by=request.user, organization=request.organization)
+@@ -45,7 +43,7 @@ class BatchListCreateView(APIView):
+         )
+ 
+ 
+-class BatchDetailView(APIView):
++class BatchDetailView(TenantScopedAPIView):
+     serializer_class = BatchSerializer
+ 
+     """
+@@ -57,7 +55,7 @@ class BatchDetailView(APIView):
+ 
+     def get_object(self, request, pk):
+         try:
+-            return TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph")).get(pk=pk)
++            return self.tenant_qs(Batch.objects.select_related("product", "product__monograph")).get(pk=pk)
+         except Batch.DoesNotExist:
+             return None
+ 
+diff --git a/QCSTS/apps/chamber/views.py b/QCSTS/apps/chamber/views.py
+index 34e826a..c7d6560 100644
+--- a/QCSTS/apps/chamber/views.py
++++ b/QCSTS/apps/chamber/views.py
+@@ -1,4 +1,4 @@
+-from rest_framework.views import APIView
++from core.views import TenantScopedAPIView
+ from rest_framework import status
+ from django.db import transaction
+ 
+@@ -10,18 +10,17 @@ from apps.chamber.serializers import (
+     LocationHistorySerializer,
+     ChangeBatchLocationSerializer,
+ )
+-from apps.platform.services import TenantContextService
+ from core.permissions import IsAnalystOrAbove
+ from core.responses import success_response
+ from services.audit_service import AuditService
+ 
+ 
+-class ChamberInventoryView(APIView):
++class ChamberInventoryView(TenantScopedAPIView):
+     serializer_class = BatchSerializer
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get(self, request):
+-        queryset = TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph"))
++        queryset = self.tenant_qs(Batch.objects.select_related("product", "product__monograph"))
+ 
+         study_type = request.query_params.get("study_type")
+         if study_type:
+@@ -30,12 +29,12 @@ class ChamberInventoryView(APIView):
+         return success_response(data=BatchSerializer(queryset, many=True).data)
+ 
+ 
+-class SamplePullListCreateView(APIView):
++class SamplePullListCreateView(TenantScopedAPIView):
+     serializer_class = SamplePullSerializer
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get(self, request):
+-        queryset = TenantContextService.scope_queryset(request, SamplePull.objects.select_related("batch", "pulled_by", "test_point"))
++        queryset = self.tenant_qs(SamplePull.objects.select_related("batch", "pulled_by", "test_point"))
+ 
+         batch_id = request.query_params.get("batch")
+         if batch_id:
+@@ -44,7 +43,6 @@ class SamplePullListCreateView(APIView):
+         return success_response(data=SamplePullSerializer(queryset, many=True).data)
+ 
+     def post(self, request):
+-        TenantContextService.resolve(request)
+         serializer = SamplePullSerializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+         sample_pull = serializer.save(pulled_by=request.user, created_by=request.user, organization=request.organization)
+@@ -54,12 +52,11 @@ class SamplePullListCreateView(APIView):
+         )
+ 
+ 
+-class ChangeBatchLocationView(APIView):
++class ChangeBatchLocationView(TenantScopedAPIView):
+     serializer_class = ChangeBatchLocationSerializer
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def post(self, request):
+-        TenantContextService.resolve(request)
+         serializer = ChangeBatchLocationSerializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+ 
+@@ -104,7 +101,7 @@ class ChangeBatchLocationView(APIView):
+ 
+ 
+ 
+-class LocationHistoryView(APIView):
++class LocationHistoryView(TenantScopedAPIView):
+     serializer_class = LocationHistorySerializer
+ 
+     """
+@@ -115,10 +112,7 @@ class LocationHistoryView(APIView):
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get(self, request, pk):
+-        TenantContextService.resolve(request)
+-        history = TenantContextService.scope_queryset(
+-            request,
+-            LocationHistory.objects.select_related("batch").filter(
++        history = self.tenant_qs(LocationHistory.objects.select_related("batch").filter(
+                 batch__organization=request.organization
+             ),
+         )
+diff --git a/QCSTS/apps/products/views.py b/QCSTS/apps/products/views.py
+index 16010ea..3319bcc 100644
+--- a/QCSTS/apps/products/views.py
++++ b/QCSTS/apps/products/views.py
+@@ -1,4 +1,4 @@
+-from rest_framework.views import APIView
++from core.views import TenantScopedAPIView
+ from rest_framework import status
+ from django.utils import timezone
+ 
+@@ -12,20 +12,18 @@ from apps.products.serializers import (
+ from core.permissions import IsAnalystOrAbove, IsQAManager
+ from core.responses import success_response, error_response
+ from core.exceptions import MonographAlreadyApproved
+-from apps.platform.services import TenantContextService
+ from services.audit_service import AuditService
+ 
+ 
+-class MonographListCreateView(APIView):
++class MonographListCreateView(TenantScopedAPIView):
+     serializer_class = MonographSerializer
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get(self, request):
+-        queryset = TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by"))
++        queryset = self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by"))
+         return success_response(data=MonographSerializer(queryset, many=True).data)
+ 
+     def post(self, request):
+-        TenantContextService.resolve(request)
+         serializer = MonographCreateSerializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+         monograph = serializer.save(created_by=request.user, organization=request.organization)
+@@ -44,13 +42,13 @@ class MonographListCreateView(APIView):
+         )
+ 
+ 
+-class MonographDetailView(APIView):
++class MonographDetailView(TenantScopedAPIView):
+     serializer_class = MonographSerializer
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get_object(self, request, pk):
+         try:
+-            return TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
++            return self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
+         except Monograph.DoesNotExist:
+             return None
+ 
+@@ -85,13 +83,13 @@ class MonographDetailView(APIView):
+         return success_response(data=MonographSerializer(monograph).data)
+ 
+ 
+-class MonographApproveView(APIView):
++class MonographApproveView(TenantScopedAPIView):
+     serializer_class = MonographSerializer
+     permission_classes = [IsQAManager]
+ 
+     def post(self, request, pk):
+         try:
+-            monograph = TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
++            monograph = self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
+         except Monograph.DoesNotExist:
+             return error_response({"detail": "Monograph not found."}, status.HTTP_404_NOT_FOUND)
+ 
+@@ -119,13 +117,13 @@ class MonographApproveView(APIView):
+         )
+ 
+ 
+-class MonographTestListCreateView(APIView):
++class MonographTestListCreateView(TenantScopedAPIView):
+     serializer_class = MonographTestSerializer
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get_monograph(self, request, pk):
+         try:
+-            return TenantContextService.scope_queryset(request, Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
++            return self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by")).get(pk=pk)
+         except Monograph.DoesNotExist:
+             return None
+ 
+@@ -161,17 +159,16 @@ class MonographTestListCreateView(APIView):
+         )
+ 
+ 
+-class ProductListCreateView(APIView):
++class ProductListCreateView(TenantScopedAPIView):
+     serializer_class = ProductSerializer
+     # Allow all authenticated users (analyst, supervisor, qa_manager, admin)
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get(self, request):
+-        queryset = TenantContextService.scope_queryset(request, Product.objects.select_related("monograph", "created_by"))
++        queryset = self.tenant_qs(Product.objects.select_related("monograph", "created_by"))
+         return success_response(data=ProductSerializer(queryset, many=True).data)
+ 
+     def post(self, request):
+-        TenantContextService.resolve(request)
+         serializer = ProductSerializer(data=request.data, context={"request": request})
+         serializer.is_valid(raise_exception=True)
+         product = serializer.save(created_by=request.user, organization=request.organization)
+@@ -190,13 +187,13 @@ class ProductListCreateView(APIView):
+         )
+ 
+ 
+-class ProductDetailView(APIView):
++class ProductDetailView(TenantScopedAPIView):
+     serializer_class = ProductSerializer
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get_object(self, request, pk):
+         try:
+-            return TenantContextService.scope_queryset(request, Product.objects.select_related("monograph", "created_by")).get(pk=pk)
++            return self.tenant_qs(Product.objects.select_related("monograph", "created_by")).get(pk=pk)
+         except Product.DoesNotExist:
+             return None
+ 
+diff --git a/QCSTS/apps/reports/views.py b/QCSTS/apps/reports/views.py
+index 2d98b41..1aa8dc0 100644
+--- a/QCSTS/apps/reports/views.py
++++ b/QCSTS/apps/reports/views.py
+@@ -1,20 +1,18 @@
+ from django.utils import timezone
+-from rest_framework.views import APIView
++from core.views import TenantScopedAPIView
+ 
+ from apps.batches.models import Batch
+-from apps.platform.services import TenantContextService
+ from apps.products.models import Product
+ from apps.schedule.models import TestPoint
+ from core.permissions import IsAnalystOrAbove
+ from core.responses import success_response
+ 
+ 
+-class DashboardView(APIView):
++class DashboardView(TenantScopedAPIView):
+     serializer_class = None
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get(self, request):
+-        TenantContextService.resolve(request)
+         today = timezone.now().date()
+         in_30_days = today + timezone.timedelta(days=30)
+ 
+diff --git a/QCSTS/apps/results/views.py b/QCSTS/apps/results/views.py
+index 21df3bd..cf6e3cb 100644
+--- a/QCSTS/apps/results/views.py
++++ b/QCSTS/apps/results/views.py
+@@ -1,17 +1,16 @@
+ from rest_framework.permissions import IsAuthenticated
+-from rest_framework.views import APIView
++from core.views import TenantScopedAPIView
+ from django.shortcuts import get_object_or_404
+ 
+ from apps.results.models import TestResult, ResultReview, ResultCorrection
+ from apps.results.serializers import TestResultSerializer, ResultReviewSerializer, ResultCorrectionSerializer
+-from apps.platform.services import TenantContextService
+ from services.signature_service import SignatureService
+ from services.audit_service import AuditService
+ from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager
+ from core.responses import success_response, error_response
+ 
+ 
+-class VerifySignatureView(APIView):
++class VerifySignatureView(TenantScopedAPIView):
+     """
+     POST /api/v1/results/signature/verify/
+     Body: { "password": "user_password" }
+@@ -32,7 +31,7 @@ class VerifySignatureView(APIView):
+         return success_response({"signature_token": token})
+ 
+ 
+-class SubmitResultView(APIView):
++class SubmitResultView(TenantScopedAPIView):
+     """
+     GET  /api/v1/results/
+     POST /api/v1/results/
+@@ -40,7 +39,7 @@ class SubmitResultView(APIView):
+     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
+ 
+     def get(self, request):
+-        queryset = TenantContextService.scope_queryset(request, TestResult.objects.select_related(
++        queryset = self.tenant_qs(TestResult.objects.select_related(
+             "test_point",
+             "monograph_test",
+             "analyst",
+@@ -57,7 +56,6 @@ class SubmitResultView(APIView):
+         return success_response(data=TestResultSerializer(queryset, many=True).data)
+ 
+     def post(self, request):
+-        TenantContextService.resolve(request)
+         token = request.headers.get("X-Signature-Token")
+         if not token or not SignatureService.validate(request.user, token):
+             return error_response("Invalid or missing signature token", status_code=403)
+@@ -75,7 +73,7 @@ class SubmitResultView(APIView):
+         )
+ 
+ 
+-class SupervisorReviewResultView(APIView):
++class SupervisorReviewResultView(TenantScopedAPIView):
+     """
+     POST /api/v1/results/<result_id>/review/
+     Transition: submitted -> under_review
+@@ -83,7 +81,6 @@ class SupervisorReviewResultView(APIView):
+     permission_classes = [IsAuthenticated, IsReviewerOrAbove]
+ 
+     def post(self, request, result_id):
+-        TenantContextService.resolve(request)
+ 
+         token = request.headers.get("X-Signature-Token")
+         if not token or not SignatureService.validate(request.user, token):
+@@ -134,7 +131,7 @@ class SupervisorReviewResultView(APIView):
+         )
+ 
+ 
+-class QAApproveResultView(APIView):
++class QAApproveResultView(TenantScopedAPIView):
+     """
+     POST /api/v1/results/<result_id>/approve/
+     Transition: under_review -> approved
+@@ -142,7 +139,6 @@ class QAApproveResultView(APIView):
+     permission_classes = [IsAuthenticated, IsQAManager]
+ 
+     def post(self, request, result_id):
+-        TenantContextService.resolve(request)
+ 
+         token = request.headers.get("X-Signature-Token")
+         if not token or not SignatureService.validate(request.user, token):
+@@ -193,7 +189,7 @@ class QAApproveResultView(APIView):
+         )
+ 
+ 
+-class QARejectResultView(APIView):
++class QARejectResultView(TenantScopedAPIView):
+     """
+     POST /api/v1/results/<result_id>/reject/
+     Transition: under_review -> rejected
+@@ -201,7 +197,6 @@ class QARejectResultView(APIView):
+     permission_classes = [IsAuthenticated, IsQAManager]
+ 
+     def post(self, request, result_id):
+-        TenantContextService.resolve(request)
+ 
+         token = request.headers.get("X-Signature-Token")
+         if not token or not SignatureService.validate(request.user, token):
+@@ -255,7 +250,7 @@ class QARejectResultView(APIView):
+             status_code=201,
+         )
+ 
+-class CorrectResultView(APIView):
++class CorrectResultView(TenantScopedAPIView):
+     """
+     POST /api/v1/results/<result_id>/correct/
+     Header: X-Signature-Token: <token>
+@@ -268,7 +263,6 @@ class CorrectResultView(APIView):
+     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
+ 
+     def post(self, request, result_id):
+-        TenantContextService.resolve(request)
+ 
+         token = request.headers.get("X-Signature-Token")
+         if not token or not SignatureService.validate(request.user, token):
+diff --git a/QCSTS/apps/schedule/views.py b/QCSTS/apps/schedule/views.py
+index 56ec2be..257af0d 100644
+--- a/QCSTS/apps/schedule/views.py
++++ b/QCSTS/apps/schedule/views.py
+@@ -1,15 +1,14 @@
+-from rest_framework.views import APIView
++from core.views import TenantScopedAPIView
+ from rest_framework import status
+ from django.utils import timezone
+ 
+ from apps.schedule.models import TestPoint
+ from apps.schedule.serializers import TestPointSerializer
+-from apps.platform.services import TenantContextService
+ from core.permissions import IsAnalystOrAbove
+ from core.responses import success_response, error_response
+ 
+ 
+-class TestPointListView(APIView):
++class TestPointListView(TenantScopedAPIView):
+     serializer_class = TestPointSerializer
+ 
+     """
+@@ -25,7 +24,7 @@ class TestPointListView(APIView):
+     permission_classes = [IsAnalystOrAbove]
+ 
+     def get(self, request):
+-        queryset = TenantContextService.scope_queryset(request, TestPoint.objects.select_related("batch", "batch__product"))
++        queryset = self.tenant_qs(TestPoint.objects.select_related("batch", "batch__product"))
+ 
+         batch_id = request.query_params.get("batch")
+         status_filter = request.query_params.get("status")
+@@ -45,7 +44,7 @@ class TestPointListView(APIView):
+         return success_response(data=TestPointSerializer(queryset, many=True).data)
+ 
+ 
+-class TestPointDetailView(APIView):
++class TestPointDetailView(TenantScopedAPIView):
+     serializer_class = TestPointSerializer
+ 
+     """
+@@ -57,7 +56,7 @@ class TestPointDetailView(APIView):
+ 
+     def get(self, request, pk):
+         try:
+-            tp = TenantContextService.scope_queryset(request, TestPoint.objects.select_related("batch", "batch__product")).get(pk=pk)
++            tp = self.tenant_qs(TestPoint.objects.select_related("batch", "batch__product")).get(pk=pk)
+         except TestPoint.DoesNotExist:
+             return error_response({"detail": "Test point not found."}, status.HTTP_404_NOT_FOUND)
+         return success_response(data=TestPointSerializer(tp).data)
+diff --git a/QCSTS/config/settings/base.py b/QCSTS/config/settings/base.py
+index 6370704..e2d57de 100644
+--- a/QCSTS/config/settings/base.py
++++ b/QCSTS/config/settings/base.py
+@@ -116,6 +116,17 @@ REST_FRAMEWORK = {
+     ],
+     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+     "EXCEPTION_HANDLER": "core.exceptions.qcsts_exception_handler",
++    # Account lockout without throttling is a DoS lever, not a defence: an
++    # attacker can lock every known address for free. Throttle first, lock second.
++    "DEFAULT_THROTTLE_CLASSES": [
++        "rest_framework.throttling.ScopedRateThrottle",
++        "rest_framework.throttling.AnonRateThrottle",
++    ],
++    "DEFAULT_THROTTLE_RATES": {
++        "login": env("THROTTLE_LOGIN", default="10/min"),
++        "signature": env("THROTTLE_SIGNATURE", default="20/min"),
++        "anon": env("THROTTLE_ANON", default="60/min"),
++    },
+ }
+ 
+ # ── JWT ────────────────────────────────────────────────────────────────────────
+diff --git a/QCSTS/config/settings/test.py b/QCSTS/config/settings/test.py
+index 9556181..0c5281a 100644
+--- a/QCSTS/config/settings/test.py
++++ b/QCSTS/config/settings/test.py
+@@ -22,3 +22,9 @@ PASSWORD_HASHERS = [
+ 
+ # Celery runs tasks immediately in tests — no worker needed
+ CELERY_TASK_ALWAYS_EAGER = True
++
++# Throttles are exercised by dedicated tests that override these rates.
++# Leaving production rates on would make the rest of the suite order-dependent.
++REST_FRAMEWORK = {**REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {
++    "login": "10000/min", "signature": "10000/min", "anon": "10000/min",
++}}
+diff --git a/QCSTS/core/permissions.py b/QCSTS/core/permissions.py
+index 5e6b51e..cc9a6ad 100644
+--- a/QCSTS/core/permissions.py
++++ b/QCSTS/core/permissions.py
+@@ -1,45 +1,123 @@
++"""
++Organization-scoped authorization.
++
++What changed and why
++--------------------
++These classes previously read ``request.user.role`` — a single CharField on
++CustomUser with no organization dimension. That meant one "admin" was an admin
++of *every* tenant on the platform, and ``UserDetailView.patch`` could hand that
++role to anyone. Meanwhile the real RBAC model (Membership -> Role ->
++Permission) sat in apps/platform with zero call sites.
++
++Two authorization systems is worse than one bad one. There is now exactly one:
++authority comes from the Membership that ``TenantContextService`` verified for
++the active organization. ``CustomUser.role`` is no longer consulted for any
++access decision.
++
++Ordering: these classes require ``request.membership``, which
++``TenantScopedAPIView.perform_authentication`` sets before DRF runs
++``check_permissions``. Using them on a plain APIView is a programming error and
++raises loudly rather than failing open.
++"""
++
+ from rest_framework.permissions import BasePermission
+ 
+-class IsViewer(BasePermission):
+-    message = "Authentication required."
++# Ranked role ladder. Names match platform.Role.name.
++ROLE_RANK = {
++    "viewer": 0,
++    "analyst": 1,
++    "supervisor": 2,
++    "qa_manager": 3,
++    "admin": 4,
++    "system": 4,
++}
++
++
++class _MembershipPermission(BasePermission):
++    """Shared plumbing: pull the verified membership off the request."""
++
++    def _membership(self, request):
++        membership = getattr(request, "membership", None)
++        if membership is None:
++            raise RuntimeError(
++                f"{self.__class__.__name__} requires tenant context. "
++                "The view must inherit core.views.TenantScopedAPIView."
++            )
++        return membership
++
++
++class HasTenantContext(_MembershipPermission):
++    message = "An active organization membership is required."
++
+     def has_permission(self, request, view):
+-        return bool(request.user and request.user.is_authenticated)
++        if not request.user or not request.user.is_authenticated:
++            return False
++        return self._membership(request) is not None
++
++
++class MinimumRole(_MembershipPermission):
++    """
++    Grants access when the membership's role ranks at or above ``min_role``.
++
++    Rank is evaluated inside the active organization only. A user who is admin
++    of org A and analyst of org B gets analyst authority while org B is the
++    active context.
++    """
++
++    min_role = "viewer"
++    message = "Your role in this organization is not sufficient for this action."
+ 
+-class IsAnalystOrAbove(BasePermission):
+-    message = "Analyst role or above is required for this action."
+-    ALLOWED_ROLES = {"admin", "qa_manager", "supervisor", "analyst", "system"}
+     def has_permission(self, request, view):
+-        return (
+-            request.user
+-            and request.user.is_authenticated
+-            and request.user.role in self.ALLOWED_ROLES
+-        )
++        if not request.user or not request.user.is_authenticated:
++            return False
++        membership = self._membership(request)
++        role_name = (membership.role.name or "").strip().lower()
++        if role_name not in ROLE_RANK:
++            return False
++        return ROLE_RANK[role_name] >= ROLE_RANK[self.min_role]
+ 
+-class IsReviewerOrAbove(BasePermission):
++
++class IsViewer(MinimumRole):
++    min_role = "viewer"
++    message = "Authentication and an organization membership are required."
++
++
++class IsAnalystOrAbove(MinimumRole):
++    min_role = "analyst"
++    message = "Analyst role or above is required for this action."
++
++
++class IsReviewerOrAbove(MinimumRole):
++    min_role = "supervisor"
+     message = "Supervisor role or above is required for this action."
+-    ALLOWED_ROLES = {"admin", "qa_manager", "supervisor"}
+-    def has_permission(self, request, view):
+-        return (
+-            request.user
+-            and request.user.is_authenticated
+-            and request.user.role in self.ALLOWED_ROLES
+-        )
+ 
+-class IsQAManager(BasePermission):
++
++class IsQAManager(MinimumRole):
++    min_role = "qa_manager"
+     message = "QA Manager role or above is required for this action."
+-    ALLOWED_ROLES = {"admin", "qa_manager"}
+-    def has_permission(self, request, view):
+-        return (
+-            request.user
+-            and request.user.is_authenticated
+-            and request.user.role in self.ALLOWED_ROLES
+-        )
+ 
+-class IsAdmin(BasePermission):
++
++class IsAdmin(MinimumRole):
++    min_role = "admin"
+     message = "Administrator role is required for this action."
++
++
++class HasOrganizationPermission(_MembershipPermission):
++    """
++    Fine-grained check against the Permission catalogue.
++
++    Prefer this over role rank for anything that customers will want to
++    reconfigure (they will). Set ``permission_code`` on a subclass.
++    """
++
++    permission_code = None
++    message = "You do not have permission to perform this action."
++
+     def has_permission(self, request, view):
+-        return (
+-            request.user
+-            and request.user.is_authenticated
+-            and request.user.role == "admin"
+-        )
+\ No newline at end of file
++        if not request.user or not request.user.is_authenticated:
++            return False
++        if self.permission_code is None:
++            raise RuntimeError(
++                f"{self.__class__.__name__} must define permission_code."
++            )
++        return self._membership(request).has_permission(self.permission_code)

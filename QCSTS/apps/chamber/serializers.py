@@ -3,9 +3,10 @@ from apps.chamber.models import SamplePull, LocationHistory
 from apps.batches.models import Batch
 from apps.schedule.models import TestPoint
 from core.exceptions import InsufficientQuantity
+from core.serializers import TenantScopedModelSerializer, TenantScopedPrimaryKeyRelatedField
 
 
-class SamplePullSerializer(serializers.ModelSerializer):
+class SamplePullSerializer(TenantScopedModelSerializer):
     batch_number = serializers.SerializerMethodField()
 
     class Meta:
@@ -93,9 +94,15 @@ class LocationHistorySerializer(serializers.ModelSerializer):
 class ChangeBatchLocationSerializer(serializers.Serializer):
     """
     Used when an analyst moves a batch to a new location in the chamber.
+
+    ``batch`` was previously ``PrimaryKeyRelatedField(queryset=Batch.objects.all())``
+    with no organization filter — any authenticated analyst could submit
+    another tenant's batch ID and this endpoint would relocate it and log the
+    move under the wrong organization's audit trail. Requires
+    context={"request": request} to be passed to this serializer.
     """
 
-    batch = serializers.PrimaryKeyRelatedField(queryset=Batch.objects.all())
+    batch = TenantScopedPrimaryKeyRelatedField(queryset=Batch.objects.all())
     new_shelf = serializers.CharField(max_length=50)
     new_rack = serializers.CharField(max_length=50)
     new_position = serializers.CharField(max_length=50)

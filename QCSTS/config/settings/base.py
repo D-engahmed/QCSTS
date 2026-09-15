@@ -116,6 +116,17 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "core.exceptions.qcsts_exception_handler",
+    # Account lockout without throttling is a DoS lever, not a defence: an
+    # attacker can lock every known address for free. Throttle first, lock second.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "login": env("THROTTLE_LOGIN", default="10/min"),
+        "signature": env("THROTTLE_SIGNATURE", default="20/min"),
+        "anon": env("THROTTLE_ANON", default="60/min"),
+    },
 }
 
 # ── JWT ────────────────────────────────────────────────────────────────────────

@@ -1,17 +1,16 @@
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from core.views import TenantScopedAPIView
 from django.shortcuts import get_object_or_404
 
 from apps.results.models import TestResult, ResultReview, ResultCorrection
 from apps.results.serializers import TestResultSerializer, ResultReviewSerializer, ResultCorrectionSerializer
-from apps.platform.services import TenantContextService
 from services.signature_service import SignatureService
 from services.audit_service import AuditService
 from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager
 from core.responses import success_response, error_response
 
 
-class VerifySignatureView(APIView):
+class VerifySignatureView(TenantScopedAPIView):
     """
     POST /api/v1/results/signature/verify/
     Body: { "password": "user_password" }
@@ -32,7 +31,7 @@ class VerifySignatureView(APIView):
         return success_response({"signature_token": token})
 
 
-class SubmitResultView(APIView):
+class SubmitResultView(TenantScopedAPIView):
     """
     GET  /api/v1/results/
     POST /api/v1/results/
@@ -40,7 +39,7 @@ class SubmitResultView(APIView):
     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = TenantContextService.scope_queryset(request, TestResult.objects.select_related(
+        queryset = self.tenant_qs(TestResult.objects.select_related(
             "test_point",
             "monograph_test",
             "analyst",
@@ -57,7 +56,6 @@ class SubmitResultView(APIView):
         return success_response(data=TestResultSerializer(queryset, many=True).data)
 
     def post(self, request):
-        TenantContextService.resolve(request)
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
             return error_response("Invalid or missing signature token", status_code=403)
@@ -75,7 +73,7 @@ class SubmitResultView(APIView):
         )
 
 
-class SupervisorReviewResultView(APIView):
+class SupervisorReviewResultView(TenantScopedAPIView):
     """
     POST /api/v1/results/<result_id>/review/
     Transition: submitted -> under_review
@@ -83,7 +81,6 @@ class SupervisorReviewResultView(APIView):
     permission_classes = [IsAuthenticated, IsReviewerOrAbove]
 
     def post(self, request, result_id):
-        TenantContextService.resolve(request)
 
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
@@ -134,7 +131,7 @@ class SupervisorReviewResultView(APIView):
         )
 
 
-class QAApproveResultView(APIView):
+class QAApproveResultView(TenantScopedAPIView):
     """
     POST /api/v1/results/<result_id>/approve/
     Transition: under_review -> approved
@@ -142,7 +139,6 @@ class QAApproveResultView(APIView):
     permission_classes = [IsAuthenticated, IsQAManager]
 
     def post(self, request, result_id):
-        TenantContextService.resolve(request)
 
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
@@ -193,7 +189,7 @@ class QAApproveResultView(APIView):
         )
 
 
-class QARejectResultView(APIView):
+class QARejectResultView(TenantScopedAPIView):
     """
     POST /api/v1/results/<result_id>/reject/
     Transition: under_review -> rejected
@@ -201,7 +197,6 @@ class QARejectResultView(APIView):
     permission_classes = [IsAuthenticated, IsQAManager]
 
     def post(self, request, result_id):
-        TenantContextService.resolve(request)
 
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
@@ -255,7 +250,7 @@ class QARejectResultView(APIView):
             status_code=201,
         )
 
-class CorrectResultView(APIView):
+class CorrectResultView(TenantScopedAPIView):
     """
     POST /api/v1/results/<result_id>/correct/
     Header: X-Signature-Token: <token>
@@ -268,7 +263,6 @@ class CorrectResultView(APIView):
     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
 
     def post(self, request, result_id):
-        TenantContextService.resolve(request)
 
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):

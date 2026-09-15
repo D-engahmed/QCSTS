@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from core.serializers import TenantScopedModelSerializer
 from django.db import transaction
 
 from apps.batches.models import Batch
@@ -18,7 +19,7 @@ class TestPointSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class BatchSerializer(serializers.ModelSerializer):
+class BatchSerializer(TenantScopedModelSerializer):
     test_points = TestPointSerializer(many=True, read_only=True)
     product_name = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()

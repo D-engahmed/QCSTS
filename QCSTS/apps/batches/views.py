@@ -1,15 +1,14 @@
-from rest_framework.views import APIView
+from core.views import TenantScopedAPIView
 from rest_framework import status
 
 from apps.batches.models import Batch
 from apps.batches.serializers import BatchSerializer
-from apps.platform.services import TenantContextService
 from core.permissions import IsAnalystOrAbove
 from core.responses import success_response, error_response
 from services.audit_service import AuditService
 
 
-class BatchListCreateView(APIView):
+class BatchListCreateView(TenantScopedAPIView):
     serializer_class = BatchSerializer
 
     """
@@ -20,7 +19,7 @@ class BatchListCreateView(APIView):
     permission_classes = [IsAnalystOrAbove]
 
     def get(self, request):
-        queryset = TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph"))
+        queryset = self.tenant_qs(Batch.objects.select_related("product", "product__monograph"))
 
         product_id = request.query_params.get("product")
         status_filter = request.query_params.get("status")
@@ -36,7 +35,6 @@ class BatchListCreateView(APIView):
         return success_response(data=BatchSerializer(queryset, many=True).data)
 
     def post(self, request):
-        TenantContextService.resolve(request)
         serializer = BatchSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         batch = serializer.save(created_by=request.user, organization=request.organization)
@@ -45,7 +43,7 @@ class BatchListCreateView(APIView):
         )
 
 
-class BatchDetailView(APIView):
+class BatchDetailView(TenantScopedAPIView):
     serializer_class = BatchSerializer
 
     """
@@ -57,7 +55,7 @@ class BatchDetailView(APIView):
 
     def get_object(self, request, pk):
         try:
-            return TenantContextService.scope_queryset(request, Batch.objects.select_related("product", "product__monograph")).get(pk=pk)
+            return self.tenant_qs(Batch.objects.select_related("product", "product__monograph")).get(pk=pk)
         except Batch.DoesNotExist:
             return None
 
