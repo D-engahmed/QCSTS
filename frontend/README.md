@@ -1,25 +1,41 @@
 # QCSTS Frontend
 
-Professional B2B SaaS frontend for the QCSTS pharmaceutical quality and stability platform.
+Professional multi-tenant pharmaceutical quality and stability SaaS interface built with Next.js 15, React 19 and TypeScript.
 
-## Stack
+## Product surfaces
 
-- Next.js 15
-- React 19
-- TypeScript
-- Lucide icons
-- CSS design system (no UI framework lock-in)
-
-## Current product surfaces
-
-- Command Center dashboard
-- Stability Studies workspace
-- Professional SaaS navigation shell
+- Authentication entry point
 - Organization/site context
-- Operational alerts
-- Study health and progress
-- Timepoint queue
-- Responsive layouts
+- Command Center
+- Stability Studies and controlled study creation wizard
+- Study detail workspace
+- Protocols and protocol versions
+- Specifications and specification versions
+- Products and batch enrollment
+- Samples and timepoints
+- Results, QA review, electronic-signature UX and locked records
+- Chambers
+- OOS/OOT
+- Deviations
+- CAPA
+- Audit and compliance
+- Organization administration
+- Users and roles
+- Billing and subscription
+- Reports and analytics
+- Settings
+
+## API integration
+
+Set `NEXT_PUBLIC_API_URL` to the Django API root, for example:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+```
+
+`src/lib/api.ts` centralizes API requests. `src/hooks/useTenantResource.ts` provides a tenant-aware client resource boundary and should be used by production pages instead of duplicating fetch logic.
+
+The UI intentionally separates controlled workflows from presentation. Server-side authorization, tenant isolation, subscription entitlements, e-signature enforcement and record locking remain authoritative in the Django backend.
 
 ## Run
 
@@ -31,14 +47,6 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## Next frontend milestones
+## Production readiness
 
-1. Connect the shell to the Django API.
-2. Replace mock dashboard data with tenant-scoped API data.
-3. Add authentication and organization switching.
-4. Add study detail workspace.
-5. Add protocol/specification version management UI.
-6. Add sample/timepoint/result workflows.
-7. Add audit/compliance views.
-8. Add organization administration and billing.
-9. Add loading, empty, error and permission states for every workflow.
+The branch provides the product-facing frontend surfaces and workflow UX. Replace demonstration records with backend responses as each API endpoint becomes available; do not move authorization decisions into the browser.
