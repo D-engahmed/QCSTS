@@ -22,7 +22,15 @@ class QualityEvent(BaseModel):
     description = models.TextField()
     severity = models.CharField(max_length=16, choices=Severity.choices, default=Severity.MEDIUM)
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.OPEN)
-    owner = models.ForeignKey("accounts.CustomUser", on_delete=models.SET_NULL, null=True, blank=True, related_name="quality_events_owned")
+    # This model is abstract. Django expands %(class)s for each concrete model,
+    # preventing reverse-accessor collisions between OOS/OOT/Deviation/CAPA/etc.
+    owner = models.ForeignKey(
+        "accounts.CustomUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="%(class)s_quality_events_owned",
+    )
     due_at = models.DateTimeField(null=True, blank=True)
     root_cause = models.TextField(blank=True)
     impact_assessment = models.TextField(blank=True)
