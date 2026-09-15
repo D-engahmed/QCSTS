@@ -1,8 +1,7 @@
-# <center> QC Stability Tracking System v0.1.3 </center>
-<center>
+# <dev calss="center"> QC Stability Tracking System v0.1.3 </dev>
 
-=======
-<center> 
+
+<dev calss="center"> 
     
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://postgresql.org)
@@ -11,7 +10,7 @@
 [![GMP](https://img.shields.io/badge/GMP-Compliant-brightgreen.svg)](https://www.fda.gov/drugs/pharmaceutical-quality-resources/good-manufacturing-practice-gmp-resources)
 [![21 CFR Part 11](https://img.shields.io/badge/21%20CFR%20Part%2011-Compliant-blue.svg)](https://www.fda.gov/regulatory-information/search-fda-guidance-documents/part-11-electronic-records-electronic-signatures-scope-and-application)
 
-</center>
+</dev>
 
 > **Enterprise pharmaceutical quality control platform** for GMP stability studies, chamber inventory management, sample pull workflows with quantity confirmation, and 21 CFR Part 11 compliant test result entry with auto pass/fail calculation.
 
