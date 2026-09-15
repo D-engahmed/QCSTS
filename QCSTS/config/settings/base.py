@@ -35,6 +35,7 @@ LOCAL_APPS = [
     "apps.platform",
     "apps.accounts",
     "apps.audit",
+    "apps.billing",
     "apps.products",
     "apps.batches",
     "apps.schedule",
@@ -116,8 +117,6 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "core.exceptions.qcsts_exception_handler",
-    # Account lockout without throttling is a DoS lever, not a defence: an
-    # attacker can lock every known address for free. Throttle first, lock second.
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.ScopedRateThrottle",
         "rest_framework.throttling.AnonRateThrottle",
@@ -146,17 +145,11 @@ if _REDIS_URL:
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
             "LOCATION": _REDIS_URL,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            },
+            "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         }
     }
 else:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        }
-    }
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
 # ── Celery ─────────────────────────────────────────────────────────────────────
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://127.0.0.1:6379/0")
@@ -167,8 +160,6 @@ CELERY_TIMEZONE = env("CELERY_BEAT_TIMEZONE", default="UTC")
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False
-
-# IMPORTANT: Allow custom signature header
 CORS_ALLOW_HEADERS = [
     "accept",
     "accept-encoding",
@@ -179,14 +170,14 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
     "x-csrftoken",
     "x-requested-with",
-    "x-signature-token",   # <-- required for result submission
+    "x-signature-token",
 ]
 
 # ── API Docs ───────────────────────────────────────────────────────────────────
 SPECTACULAR_SETTINGS = {
-    "TITLE": "CQSTS API",
+    "TITLE": "QCSTS API",
     "DESCRIPTION": "QC Stability Tracking System — Backend API",
-    "VERSION": "1.0.0",
+    "VERSION": "1.1.0",
 }
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -200,18 +191,8 @@ LOGGING = {
         },
     },
     "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-        "file": {
-            "class": "logging.FileHandler",
-            "filename": str(BASE_DIR / "logs/cqsts.log"),
-            "formatter": "verbose",
-        },
+        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
+        "file": {"class": "logging.FileHandler", "filename": str(BASE_DIR / "logs/cqsts.log"), "formatter": "verbose"},
     },
-    "root": {
-        "handlers": ["console", "file"],
-        "level": "INFO",
-    },
+    "root": {"handlers": ["console", "file"], "level": "INFO"},
 }
