@@ -38,6 +38,7 @@ LOCAL_APPS = [
     "apps.billing",
     "apps.products",
     "apps.batches",
+    "apps.stability",
     "apps.schedule",
     "apps.results",
     "apps.chamber",
@@ -177,7 +178,7 @@ CORS_ALLOW_HEADERS = [
 SPECTACULAR_SETTINGS = {
     "TITLE": "QCSTS API",
     "DESCRIPTION": "QC Stability Tracking System — Backend API",
-    "VERSION": "1.1.0",
+    "VERSION": "1.2.0",
 }
 
 # ── Logging ────────────────────────────────────────────────────────────────────
