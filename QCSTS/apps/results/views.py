@@ -1,9 +1,11 @@
 from rest_framework.permissions import IsAuthenticated
 from core.views import TenantScopedAPIView
 from django.shortcuts import get_object_or_404
+from django.conf import settings
 
 from apps.results.models import TestResult, ResultReview, ResultCorrection
 from apps.results.serializers import TestResultSerializer, ResultReviewSerializer, ResultCorrectionSerializer
+from apps.compliance.models import ElectronicSignature
 from services.signature_service import SignatureService
 from services.audit_service import AuditService
 from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager
@@ -14,6 +16,10 @@ class VerifySignatureView(TenantScopedAPIView):
     """
     POST /api/v1/results/signature/verify/
     Body: { "password": "user_password" }
+
+    This endpoint performs re-authentication and issues a short-lived,
+    one-time workflow token. The persistent Part-11-style signature is created
+    by the controlled review/approval action after the decision is committed.
     """
     permission_classes = [IsAuthenticated]
 
@@ -81,7 +87,6 @@ class SupervisorReviewResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsReviewerOrAbove]
 
     def post(self, request, result_id):
-
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
             return error_response("Invalid or missing signature token", status_code=403)
@@ -102,14 +107,26 @@ class SupervisorReviewResultView(TenantScopedAPIView):
                 status_code=400,
             )
 
+        comments = request.data.get("comments", "")
         review = ResultReview.objects.create(
             result=result,
             action="SUPERVISOR_REVIEW",
             reviewed_by=request.user,
-            comments=request.data.get("comments", ""),
+            comments=comments,
             result_snapshot=result.build_review_snapshot(),
             organization=request.organization,
             created_by=request.user,
+        )
+
+        signature = ElectronicSignature.issue(
+            organization=request.organization,
+            signer=request.user,
+            record_type="TestResult",
+            record_id=result.id,
+            record_version="1",
+            meaning=ElectronicSignature.Meaning.REVIEW,
+            reason=comments.strip() or "Supervisor review decision.",
+            authentication_secret=settings.SECRET_KEY,
         )
 
         AuditService.log(
@@ -119,9 +136,9 @@ class SupervisorReviewResultView(TenantScopedAPIView):
             object_id=result.id,
             object_repr=str(result),
             old_value={"workflow_state": "submitted"},
-            new_value={"workflow_state": "under_review"},
+            new_value={"workflow_state": "under_review", "signature_id": str(signature.id)},
             ip_address=request.META.get("REMOTE_ADDR"),
-            notes="Supervisor reviewed submitted result.",
+            notes="Supervisor reviewed submitted result and persisted electronic signature.",
             organization=request.organization,
         )
 
@@ -139,7 +156,6 @@ class QAApproveResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsQAManager]
 
     def post(self, request, result_id):
-
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
             return error_response("Invalid or missing signature token", status_code=403)
@@ -160,14 +176,26 @@ class QAApproveResultView(TenantScopedAPIView):
                 status_code=400,
             )
 
+        comments = request.data.get("comments", "")
         review = ResultReview.objects.create(
             result=result,
             action="QA_APPROVE",
             reviewed_by=request.user,
-            comments=request.data.get("comments", ""),
+            comments=comments,
             result_snapshot=result.build_review_snapshot(),
             organization=request.organization,
             created_by=request.user,
+        )
+
+        signature = ElectronicSignature.issue(
+            organization=request.organization,
+            signer=request.user,
+            record_type="TestResult",
+            record_id=result.id,
+            record_version="1",
+            meaning=ElectronicSignature.Meaning.APPROVAL,
+            reason=comments.strip() or "QA approval decision.",
+            authentication_secret=settings.SECRET_KEY,
         )
 
         AuditService.log(
@@ -177,9 +205,9 @@ class QAApproveResultView(TenantScopedAPIView):
             object_id=result.id,
             object_repr=str(result),
             old_value={"workflow_state": "under_review"},
-            new_value={"workflow_state": "approved"},
+            new_value={"workflow_state": "approved", "signature_id": str(signature.id)},
             ip_address=request.META.get("REMOTE_ADDR"),
-            notes="QA approved submitted result.",
+            notes="QA approved submitted result and persisted electronic signature.",
             organization=request.organization,
         )
 
@@ -197,7 +225,6 @@ class QARejectResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsQAManager]
 
     def post(self, request, result_id):
-
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
             return error_response("Invalid or missing signature token", status_code=403)
@@ -232,6 +259,17 @@ class QARejectResultView(TenantScopedAPIView):
             created_by=request.user,
         )
 
+        signature = ElectronicSignature.issue(
+            organization=request.organization,
+            signer=request.user,
+            record_type="TestResult",
+            record_id=result.id,
+            record_version="1",
+            meaning=ElectronicSignature.Meaning.REJECTION,
+            reason=comments.strip(),
+            authentication_secret=settings.SECRET_KEY,
+        )
+
         AuditService.log(
             performed_by=request.user,
             action="REJECT",
@@ -239,9 +277,9 @@ class QARejectResultView(TenantScopedAPIView):
             object_id=result.id,
             object_repr=str(result),
             old_value={"workflow_state": "under_review"},
-            new_value={"workflow_state": "rejected"},
+            new_value={"workflow_state": "rejected", "signature_id": str(signature.id)},
             ip_address=request.META.get("REMOTE_ADDR"),
-            notes="QA rejected submitted result.",
+            notes="QA rejected submitted result and persisted electronic signature.",
             organization=request.organization,
         )
 
@@ -249,6 +287,7 @@ class QARejectResultView(TenantScopedAPIView):
             data=ResultReviewSerializer(review).data,
             status_code=201,
         )
+
 
 class CorrectResultView(TenantScopedAPIView):
     """
@@ -263,7 +302,6 @@ class CorrectResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
 
     def post(self, request, result_id):
-
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
             return error_response("Invalid or missing signature token", status_code=403)
@@ -272,7 +310,6 @@ class CorrectResultView(TenantScopedAPIView):
         if not reason:
             return error_response("A reason for the correction is required.", status_code=400)
 
-        # Fetch the active original result
         original_result = get_object_or_404(
             TestResult.objects.select_related("test_point", "monograph_test"),
             id=result_id,
@@ -280,14 +317,12 @@ class CorrectResultView(TenantScopedAPIView):
             is_active=True
         )
 
-        # 1. Soft-delete the original result (preserves history)
         original_result.soft_delete(
             deleted_by=request.user,
             ip_address=request.META.get("REMOTE_ADDR"),
             notes=f"Superseded by correction. Reason: {reason}"
         )
 
-        # 2. Create the new corrected result
         new_data = {
             "test_point": original_result.test_point.id,
             "monograph_test": original_result.monograph_test.id,
@@ -295,17 +330,16 @@ class CorrectResultView(TenantScopedAPIView):
             "unit": request.data.get("unit", original_result.unit),
             "notes": request.data.get("notes", original_result.notes),
         }
-        
+
         serializer = TestResultSerializer(data=new_data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        
+
         corrected_result = serializer.save(
             analyst=request.user,
             created_by=request.user,
             organization=request.organization,
         )
 
-        # 3. Create the immutable correction record
         correction = ResultCorrection.objects.create(
             original_result=original_result,
             corrected_result=corrected_result,
@@ -317,7 +351,7 @@ class CorrectResultView(TenantScopedAPIView):
 
         AuditService.log(
             performed_by=request.user,
-            action="UPDATE", 
+            action="UPDATE",
             model_name="ResultCorrection",
             object_id=correction.id,
             object_repr=str(correction),
