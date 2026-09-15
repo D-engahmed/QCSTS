@@ -23,8 +23,8 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
 export const endpoints = {
   me: "/auth/me/",
-  organizations: "/organizations/",
-  sites: "/sites/",
+  organizations: "/platform/organizations/",
+  sites: "/platform/sites/",
   studies: "/stability/studies/",
   protocols: "/stability/protocols/",
   protocolVersions: "/stability/protocol-versions/",
