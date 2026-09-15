@@ -7,6 +7,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/auth/", include("apps.accounts.urls")),
     path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+    path("api/v1/platform/", include("apps.platform.api_urls")),
+    path("api/v1/billing/", include("apps.billing.api_urls")),
     path("api/v1/products/", include("apps.products.urls")),
     path("api/v1/batches/", include("apps.batches.urls")),
     path("api/v1/test-points/", include("apps.schedule.urls")),
