@@ -1,59 +1,35 @@
 """
 Tenant-scoped view base classes.
 
-Why this exists
----------------
-Before this module, tenant isolation was *opt-in*: every handler had to
-remember to call ``TenantContextService.scope_queryset``. The accounts app
-forgot, and leaked every user in every organization through
-``/api/v1/auth/users/``.
-
-Opt-in isolation fails open. A view that forgets the call serves cross-tenant
-data and no test notices. This module inverts that: tenant context is resolved
-in ``perform_authentication`` — before permission checks, before the handler —
-so it is impossible for a subclass to run without it.
-
-Anything that must NOT be tenant scoped (login, token refresh, schema) has to
-inherit ``PublicAPIView`` or ``TenantExemptAPIView`` and say so explicitly.
-``core/tests/test_route_coverage.py`` walks the URLconf and fails the build if
-any route is neither scoped nor explicitly exempt.
+Tenant-owned endpoints resolve their organization context before permission
+checks. Concrete tenant views must explicitly declare an authorization policy;
+falling back to the global DRF permission default is a production security bug.
 """
 
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.platform.services import TenantContextService
 
 
 class TenantExemptAPIView(APIView):
-    """
-    Explicitly opts out of tenant scoping.
-
-    Use ONLY for endpoints that legitimately have no organization context:
-    authentication entry points, self-service account endpoints, schema docs.
-    Every subclass must state why in its docstring — the route coverage test
-    reads this class as a deliberate declaration, not an oversight.
-    """
+    """Explicitly opts out of tenant scoping for legitimate non-tenant APIs."""
 
     tenant_scoped = False
 
 
 class PublicAPIView(TenantExemptAPIView):
-    """Unauthenticated entry points (login, token refresh)."""
+    """Unauthenticated entry points such as login."""
 
 
 class TenantScopedAPIView(APIView):
     """
     Base class for every endpoint that touches organization-owned data.
 
-    Guarantees, for every handler:
-        request.organization    — the active Organization (never None)
-        request.membership      — the verified Membership backing that context
-        request.site            — the active Site, or None
-        request.tenant_context  — the frozen TenantContext dataclass
-
-    Resolution happens in ``perform_authentication``, which DRF calls at the
-    top of ``initial()`` — before ``check_permissions``. Permission classes can
-    therefore rely on ``request.membership`` existing.
+    Tenant context is resolved before DRF permission checks. Concrete views
+    must define permission_classes themselves. This prevents a new endpoint
+    from silently inheriting only global authentication and accidentally
+    shipping without action-level RBAC.
     """
 
     tenant_scoped = True
@@ -63,41 +39,42 @@ class TenantScopedAPIView(APIView):
         if request.user and request.user.is_authenticated:
             TenantContextService.resolve(request)
 
-    # ── Query scoping ────────────────────────────────────────────────────────
+    def get_permissions(self):
+        """Fail closed when a tenant endpoint has no explicit authorization."""
+        declared = self.__class__.__dict__.get("permission_classes")
+        if declared is None:
+            raise RuntimeError(
+                f"{self.__class__.__name__} must explicitly declare permission_classes. "
+                "TenantScopedAPIView must never rely on the global DRF default."
+            )
+
+        if any(permission is AllowAny for permission in declared):
+            raise RuntimeError(
+                f"{self.__class__.__name__} cannot use AllowAny on a tenant-scoped endpoint."
+            )
+
+        if len(declared) == 1 and declared[0] is IsAuthenticated:
+            raise RuntimeError(
+                f"{self.__class__.__name__} cannot use IsAuthenticated alone. "
+                "Use a tenant-aware RBAC permission instead."
+            )
+
+        return super().get_permissions()
 
     def tenant_qs(self, queryset):
-        """
-        Restrict a queryset to the active organization.
-
-        Prefer this over a hand-written ``.filter(organization=...)`` so that
-        the scoping rule lives in one place and can be tightened later (for
-        example, to add site scoping) without touching every view.
-        """
+        """Restrict a queryset to the active organization."""
         return queryset.filter(organization=self.request.organization)
 
     def site_qs(self, queryset, field="site"):
-        """
-        Restrict a queryset to the active site, on top of organization scoping.
-
-        No-ops when the membership has no site restriction, so it is safe to
-        apply unconditionally on site-aware models.
-        """
+        """Restrict a queryset to the active site after organization scoping."""
         queryset = self.tenant_qs(queryset)
         site = getattr(self.request, "site", None)
         if site is None:
             return queryset
         return queryset.filter(**{field: site})
 
-    # ── Write scoping ────────────────────────────────────────────────────────
-
     def tenant_create_kwargs(self, **extra):
-        """
-        Standard kwargs for ``serializer.save()`` on create.
-
-        Never trust a client-supplied organization: it is injected here from
-        the server-verified membership, so a payload carrying another tenant's
-        organization ID is silently overridden rather than honoured.
-        """
+        """Inject server-verified tenant ownership into create operations."""
         kwargs = {
             "organization": self.request.organization,
             "created_by": self.request.user,
