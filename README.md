@@ -1,212 +1,355 @@
-# <div align="center"> QC Stability Tracking System v0.1.3 </div>
+# QC Stability Tracking System (QCSTS)
 
+**Multi-tenant pharmaceutical quality and stability management platform**
 
-<div align="center">
-    
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://postgresql.org)
-[![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev)
-[![Django](https://img.shields.io/badge/Django-4.2-092E20.svg)](https://www.djangoproject.com/)
-[![GMP](https://img.shields.io/badge/GMP-Compliant-brightgreen.svg)](https://www.fda.gov/drugs/pharmaceutical-quality-resources/good-manufacturing-practice-gmp-resources)
-[![21 CFR Part 11](https://img.shields.io/badge/21%20CFR%20Part%2011-Compliant-blue.svg)](https://www.fda.gov/regulatory-information/search-fda-guidance-documents/part-11-electronic-records-electronic-signatures-scope-and-application)
+[![Django](https://img.shields.io/badge/Django-4.2-092E20.svg)](https://www.djangoproject.com/) [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/) [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/) [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 
-</div>
+> QCSTS is a SaaS-oriented quality and stability platform for pharmaceutical organizations. It is engineered around controlled workflows, organization/site isolation, role-based authorization, auditability, electronic-signature workflows, reporting, quality investigations, and subscription billing.
 
-> **Enterprise pharmaceutical quality control platform** for GMP stability studies, chamber inventory management, sample pull workflows with quantity confirmation, and 21 CFR Part 11 compliant test result entry with auto pass/fail calculation.
+> **Regulatory positioning:** QCSTS is designed for GxP-regulated environments and is being developed toward a validation-ready architecture. The project does **not** claim GMP, 21 CFR Part 11, or other regulatory certification merely because a feature exists. Customer validation, procedures, configuration, qualification, and regulatory assessment remain separate activities.
 
----
+## 1. What QCSTS is
 
-## Overview
+QCSTS manages the lifecycle of pharmaceutical quality and stability data from controlled study setup through execution, review, reporting, and audit.
 
-QC Stability Tracking System (QCSTS) supports pharmaceutical stability studies with a structured, auditable workflow for batch lifecycle management, chamber placement, sample pull tracking, test entry, and result review.
+~~~text
+Organization
+    ↓
+Site
+    ↓
+Product / Monograph / Batch
+    ↓
+Stability Study
+    ↓
+Protocol → Protocol Version
+    ↓
+Specification
+    ↓
+Timepoint → Sample Pull → Test Result
+    ↓
+Review → Approval → Electronic Signature → Lock
+    ↓
+Report / Export
+~~~
 
-```
-Product → Monograph → Batch → Auto-Generated Test Schedule → Results → Reports
-```
+Quality investigations extend the lifecycle:
 
-When a batch is registered, the system automatically generates the full ICH Q1A(R2) testing schedule. Analysts submit results with an electronic signature. QA managers review and approve. Everything is tracked, timestamped, and immutable.
+~~~text
+Result / Event → OOS / OOT / Deviation → Investigation → CAPA → Closure
+~~~
 
-## Key Features
+Commercial lifecycle:
 
-- Batch creation and study scheduling based on incubation dates
-- Chamber inventory management with unique shelf/rack/position validation
-- Sample pull workflow with quantity confirmation and status tracking
-- Test result entry with auto pass/fail evaluation against specification limits
-- Electronic signature on every result submission, full audit trail
-- **Batch Stability Report** — pick a product, see all its batches, pick a batch, see the full per-test-point results matrix (which timepoints are tested / pulled / pending, and each assay's value + pass/fail), with CSV and print export
-- Role-based access: admin, qa_manager, supervisor, analyst
+~~~text
+Plan → Entitlements → Usage → Subscription → Invoice → Payment → Verified Webhook → Subscription State
+~~~
 
-## Supported Stability Study Types
+## 2. Security architecture
 
-| Study Type | Time Points | Typical Conditions |
-|------------|-------------|--------------------|
-| Long-term | 0M, 3M, 6M, 9M, 12M, 18M, 24M, 36M | 25°C / 60% RH |
-| Accelerated | 0M, 3M, 6M | 40°C / 75% RH |
+QCSTS treats the backend as the authorization authority.
 
-## Architecture
+~~~text
+Authenticated User
+        ↓
+Active Membership
+        ↓
+Organization
+        ↓
+Site Scope
+        ↓
+Explicit Permission
+        ↓
+Object Authorization
+        ↓
+State Transition
+~~~
 
-```
-QCSTS/                    ← repo root (this is where you `git clone` to)
-├── QCSTS/                ← Django backend (REST API, models, auth, business logic)
-│   ├── docker/
-│   │   ├── Dockerfile
-│   │   └── docker-compose.yml   ← runs the ENTIRE stack, backend + frontend
-│   ├── apps/              # accounts, products, batches, schedule, results, chamber, audit, reports
-│   ├── services/          # schedule_engine, signature_service, audit_service, outcome_evaluator
-│   ├── core/               # base model, custom exceptions, permissions, response envelope
+Security rules:
+
+- Authentication is not authorization.
+- Organization ownership is derived server-side where applicable.
+- Client-supplied organization identifiers are not trusted as an authorization boundary.
+- Tenant-scoped querysets are required for tenant resources.
+- Critical endpoints must declare explicit authorization policy.
+- Legacy user-role fields must not become an independent source of authority.
+- Cross-tenant access and privilege escalation are release-blocking defects.
+
+## 3. Core capabilities
+
+### Organization and access control
+- Multi-organization architecture
+- Site-aware access
+- Membership-based organization access
+- Organization-scoped roles and permissions
+- Explicit endpoint authorization
+- Tenant isolation
+- Cross-tenant security regression coverage
+
+### Stability management
+- Stability studies
+- Protocols and protocol versions
+- Specification/version binding
+- Stability timepoints
+- Sample pulls
+- Test results and traceability
+- Controlled review and approval
+- Locking and electronic-signature workflow
+
+### Quality workflows
+- OOS investigations
+- OOT investigations
+- Deviations
+- CAPA
+- Evidence and controlled records
+- Audit trail coverage
+
+### Reporting
+- Stability reports
+- Controlled exports
+- Authorization-aware report generation
+- Report provenance and version context
+
+### Commercial platform
+- Plans
+- Entitlements
+- Usage metering
+- Subscriptions
+- Invoices
+- Paymob integration
+- Idempotent payment webhook processing
+
+### Operations
+- PostgreSQL
+- Redis
+- Celery workers and Beat
+- Django/Gunicorn
+- Nginx/reverse proxy
+- Docker-based deployment
+- Production health/readiness checks
+- Logging and observability
+- Backup and restore procedures
+- CI/CD release gates
+
+## 4. Repository architecture
+
+~~~text
+QCSTS/
+├── QCSTS/                  # Django backend / project
+│   ├── apps/               # domain applications
+│   ├── core/               # shared platform/security primitives
+│   ├── services/           # business/application services
+│   ├── docker/             # container orchestration
 │   └── .env.example
-└── QCSTS_frontend/        ← React 19 + Vite frontend
-```
+├── QCSTS_frontend/         # React/Vite frontend
+├── frontend/               # frontend-related repository assets
+├── docs/                   # engineering and release documentation
+├── LICENSE.md
+└── README.md
+~~~
 
-⚠️ **Note the nested folder name** — the repo root and the Django project are both called `QCSTS`, so a clone looks like `.../QCSTS/QCSTS/...`. Every command below assumes you're standing in the **repo root** (the outer `QCSTS/`, containing both `QCSTS/` and `QCSTS_frontend/` as siblings) unless stated otherwise. This trips people up more than anything else in this project — if a `docker compose` command says *"no configuration file provided"* or *"cannot find the path specified,"* it's almost always because the current directory doesn't match the `-f` path used. Run `Get-Location` (PowerShell) / `pwd` (bash) if you're ever unsure.
+The repository currently contains both QCSTS_frontend/ and frontend/. Do not assume they are interchangeable; use the active application configuration and package metadata when working on the frontend.
 
----
+## 5. Quick start — Docker
 
-## Quick Start (Docker — recommended)
+From the repository root:
 
-This runs **everything** — Postgres, Redis, Django (gunicorn), Celery, Celery Beat, nginx, and the Vite dev server with hot reload — with one command.
-
-### 1. Configure environment
-
-```bash
+~~~bash
 cp QCSTS/.env.example QCSTS/.env
-```
-
-The defaults in `.env.example` work out of the box for local development (including `CORS_ALLOWED_ORIGINS=http://localhost:5173` for the frontend dev server). Change `DJANGO_SECRET_KEY` before deploying anywhere real.
-
-### 2. Bring the stack up
-
-```bash
 docker compose -f QCSTS/docker/docker-compose.yml up -d --build
-```
+~~~
 
-First run takes a few minutes (image builds + `npm install` inside the frontend container). `migrate` and `collectstatic` run automatically as part of the `web` container's startup — you don't need to run them by hand on a fresh setup.
+Typical local endpoints:
 
 | Service | URL |
 |---|---|
-| Frontend (hot reload) | http://localhost:5173 |
-| API / nginx | http://localhost |
-| API docs (Swagger) | http://localhost/api/docs/ |
-| Django directly (bypasses nginx) | http://localhost:8000 |
+| Frontend | http://localhost:5173 |
+| API / Nginx | http://localhost |
+| API docs | http://localhost/api/docs/ |
+| Django direct | http://localhost:8000 |
 
-### 3. Create an admin account
+Create a local administrator:
 
-```bash
+~~~bash
 docker compose -f QCSTS/docker/docker-compose.yml exec web python manage.py createsuperuser
-```
+~~~
 
-### Common commands
+Useful commands:
 
-```bash
-# Tail logs for one service
+~~~bash
 docker compose -f QCSTS/docker/docker-compose.yml logs -f web
 docker compose -f QCSTS/docker/docker-compose.yml logs -f frontend
-
-# Run a management command
 docker compose -f QCSTS/docker/docker-compose.yml exec web python manage.py <command>
-
-# After pulling backend code changes, rebuild
-docker compose -f QCSTS/docker/docker-compose.yml up -d --build
-
-# Frontend code changes hot-reload automatically — no rebuild needed
-# (the frontend container bind-mounts QCSTS_frontend/, it isn't baked into an image)
-
-# Stop everything
 docker compose -f QCSTS/docker/docker-compose.yml down
-```
+~~~
 
----
+Never use development secrets in a real deployment.
 
-## Manual Setup (without Docker)
+## 6. Manual backend setup
 
-<details>
-<summary>Backend</summary>
-
-```bash
+~~~bash
 cd QCSTS
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+# Windows
+venv\\Scripts\\activate
+# macOS/Linux
+# source venv/bin/activate
 pip install -r requirements/test.txt
 cp .env.example .env
-# Point DATABASE_URL / REDIS_URL at locally-running Postgres/Redis instead of
-# the docker service names (db/redis) in .env
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
-```
-</details>
+~~~
 
-<details>
-<summary>Frontend</summary>
+Configure DATABASE_URL and REDIS_URL for the local PostgreSQL and Redis services.
 
-```bash
+## 7. Frontend development
+
+~~~bash
 cd QCSTS_frontend
 npm install
 npm run dev
-```
-
-By default the frontend calls `http://localhost/api/v1` (see `VITE_API_URL` in `src/services/api.js`) — set `VITE_API_URL=http://localhost:8000/api/v1` if you're running the backend with `manage.py runserver` directly instead of through nginx.
-</details>
-
----
-
-## Roles & Permissions
-
-| Role | Description |
-|---|---|
-| `admin` | Full access. Creates user accounts, manages system configuration. |
-| `qa_manager` | Approves monographs, views full audit trail, exports reports. |
-| `supervisor` | Counter-signs test results, oversees batches. |
-| `analyst` | Submits test results with electronic signature, records sample pulls. |
-| `system` | Reserved for automated/service accounts. |
-
-## Testing
-
-```bash
-# Backend — from QCSTS/, inside the venv or docker compose exec web
-pytest
-
-# Frontend build check — from QCSTS_frontend/
 npm run build
-```
+~~~
 
----
+## 8. Testing
 
-## Documentation
+~~~bash
+python manage.py check
+python manage.py makemigrations --check
+pytest
+~~~
 
-- Full backend architecture, API endpoint reference, and ALCOA+ compliance notes: [`QCSTS/README.md`](QCSTS/README.md)
-- API documentation: [`QCSTS/API_DOCUMENTATION.md`](QCSTS/API_DOCUMENTATION.md)
+Frontend build:
 
-## Troubleshooting
+~~~bash
+npm run build
+~~~
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `no configuration file provided: not found` | `docker compose` run without `-f`, or from the wrong directory | Always pass `-f QCSTS/docker/docker-compose.yml` (from repo root) or `-f docker/docker-compose.yml` (from inside `QCSTS/`) |
-| `open .../docker-compose.yml: The system cannot find the path specified` | Same as above, path doesn't resolve from current directory | Run `Get-Location` first, then use the matching relative path |
-| `Bind for 0.0.0.0:5432 failed: port is already allocated` | Something else on the host (local Postgres install, another compose project) already has port 5432 | `docker compose -f QCSTS/docker/docker-compose.yml down` fully before re-running `up`, or check `netstat -ano \| findstr :5432` (Windows) to find and stop the conflicting process |
-| `git apply` fails with "patch does not apply" on files you haven't touched | Usually Windows line-ending (CRLF) conversion mangling the diff | Prefer copying files directly over `git apply` on Windows, or apply with `git apply --ignore-whitespace` |
-| `Your models in app(s): 'X' have changes that are not yet reflected in a migration` | A model field changed without running `makemigrations` | `docker compose -f QCSTS/docker/docker-compose.yml exec web python manage.py makemigrations <app>`, then `migrate` |
+Security-sensitive changes require negative tests, not only happy-path tests. At minimum, cover cross-organization reads/updates/deletes, organization spoofing, site boundary violations, missing permissions, privilege escalation, inactive memberships, unauthorized file/report access, and duplicate or invalid payment events.
 
----
+## 9. Production release gates
 
-## Git Branch Strategy
+These roadmap gates are sequential. A merged PR is not, by itself, evidence that the system is production-ready.
 
-```
-main                  ← stable releases only
-└── dev_back_end      ← integration branch
-    ├── feat/accounts
-    ├── feat/products
-    ├── feat/batches
-    └── ...
-```
+| Roadmap PR | GitHub PR | Gate |
+|---|---:|---|
+| PR13 | #13 | Tenant authorization hardening |
+| PR14 | #22 | Endpoint-wide RBAC authorization guard |
+| PR15 | #24 | Cross-tenant and privilege-escalation security |
+| PR16 | #25 | Stability Study / Protocol / Version / Specification |
+| PR17 | #26 | Timepoint / SamplePull / Result lifecycle |
+| PR18 | #27 | QA review / approval / locking / e-signatures |
+| PR19 | #28 | OOS / OOT / Deviations / CAPA |
+| PR20 | #29 | Audit integrity / controlled files |
+| PR21 | #30 | Reports / exports / authorization |
+| PR22 | #31 | Plans / Entitlements / Usage / Subscriptions / Invoices |
+| PR23 | #32 | Paymob / verified idempotent webhooks |
+| PR24 | #33 | Production infrastructure / observability |
+| PR25 | #34 | Backup / restore / disaster recovery / RPO-RTO |
+| PR26 | #35 | CI/CD / migration / deployment safety |
+| PR27 | #36 | Full E2E / security regression gates |
+| PR28 | #37 | Validation-ready pilot / production release package |
 
-Commit message format: `type(scope): description` — types: `feat`, `fix`, `test`, `docs`, `chore`, `refactor`.
+## 10. Production readiness model
 
-## Contribution
+~~~text
+Code implemented
+      ↓
+Unit/API tests
+      ↓
+Security tests
+      ↓
+Integration tests
+      ↓
+End-to-end workflow
+      ↓
+Operational tests
+      ↓
+Backup restore verification
+      ↓
+Deployment verification
+      ↓
+Requirements / validation evidence
+      ↓
+Controlled pilot
+      ↓
+Production release
+~~~
 
-Contributions should follow existing application structure, maintain code quality, and preserve testing coverage. Use the current repository conventions for apps, serializers, views, and migration management.
+QCSTS should not be described as a certified regulated system unless the required evidence and external/customer-specific activities actually exist.
+
+## 11. Critical data integrity workflow
+
+~~~text
+Draft → Review → Approve → Sign → Lock
+~~~
+
+After controlled locking/signature, ordinary mutation must not silently change the historical record. Changes should use the appropriate controlled amendment/version mechanism and generate the required audit evidence.
+
+Electronic signatures must identify the signer and signing event. Authentication credentials alone are not a complete electronic-signature and audit workflow.
+
+## 12. Auditability
+
+Critical events should provide enough evidence to answer:
+
+~~~text
+WHO
+WHAT
+WHEN
+WHERE
+WHICH OBJECT
+WHAT CHANGED
+WHY / REASON WHEN REQUIRED
+~~~
+
+Audit records are security-sensitive data and must not be editable or deletable by ordinary application users.
+
+## 13. Regulatory positioning
+
+QCSTS is designed with regulated pharmaceutical environments in mind, including controlled records, auditability, access control, electronic signatures, data integrity, and validation evidence.
+
+However:
+
+- QCSTS is not automatically GMP compliant because it implements GMP-related workflows.
+- QCSTS is not automatically 21 CFR Part 11 compliant because it has electronic signatures.
+- Regulatory compliance depends on the complete computerized-system lifecycle, configuration, procedures, validation/qualification evidence, supplier controls, security, operations, and intended use.
+- Customer-specific validation remains required.
+- Product documentation must not claim regulatory certification unless such certification has actually been obtained.
+
+Preferred positioning:
+
+> **Designed for GxP-regulated environments with a validation-ready architecture.**
+
+## 14. Contributor security rules
+
+Before opening a production PR:
+
+1. Derive authorization from trusted membership/permission context.
+2. Scope querysets to the tenant.
+3. Enforce object-level authorization.
+4. Prevent ownership spoofing.
+5. Declare explicit permissions for sensitive operations.
+6. Validate state transitions server-side.
+7. Generate audit evidence for critical changes.
+8. Add negative security tests.
+9. Never commit secrets.
+10. Fix security failures in implementation rather than weakening tests.
+
+## 15. Documentation
+
+- Backend architecture and API documentation: QCSTS/README.md
+- API documentation: QCSTS/API_DOCUMENTATION.md
+- Engineering documentation: docs/
+- Production release gates: docs/release-gates/
+
+## 16. Project status
+
+QCSTS has moved from feature development toward production hardening and controlled release engineering.
+
+The current objective is to prove that tenant boundaries hold, permissions are enforced server-side, critical quality records are controlled, workflows are traceable, audit evidence is reliable, billing/payment state is authoritative, infrastructure is recoverable, releases are test-gated, and regulatory positioning matches the evidence actually available.
+
+Until those conditions are demonstrated with implementation and test evidence, QCSTS should be treated as **pre-production / pilot-stage software**, not as a certified regulated system.
 
 ## License
 
-This project is provided under the license terms defined in [LICENSE.md](LICENSE.md).
+This project is provided under the terms defined in LICENSE.md.
