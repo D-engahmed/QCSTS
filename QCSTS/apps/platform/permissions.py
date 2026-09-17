@@ -14,9 +14,29 @@ class HasTenantContext(BasePermission):
 
 
 class HasOrganizationPermission(HasTenantContext):
+    """Require an explicit permission on the active organization membership."""
+
     permission_code = None
 
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
             return False
+        if not self.permission_code:
+            return False
         return request.membership.has_permission(self.permission_code)
+
+
+class CanViewSites(HasOrganizationPermission):
+    permission_code = "site.view"
+
+
+class CanCreateSites(HasOrganizationPermission):
+    permission_code = "site.create"
+
+
+class CanUpdateSites(HasOrganizationPermission):
+    permission_code = "site.update"
+
+
+class CanDeleteSites(HasOrganizationPermission):
+    permission_code = "site.delete"
