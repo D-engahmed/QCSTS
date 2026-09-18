@@ -8,10 +8,17 @@ from core.views import TenantExemptAPIView, TenantScopedAPIView
 
 EXEMPT_PREFIXES = (
     "admin/",
-    "api/schema/",
-    "api/docs/",
     "api/v1/auth/token/",
 )
+
+
+def _is_exempt_route(route):
+    return (
+        any(route == prefix or route.startswith(prefix) for prefix in EXEMPT_PREFIXES)
+        or route in {"api/schema", "api/docs"}
+        or route.startswith("api/schema/")
+        or route.startswith("api/docs/")
+    )
 
 
 def _walk(patterns, prefix=""):
