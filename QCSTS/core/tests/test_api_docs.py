@@ -1,7 +1,5 @@
 """Regression tests for the public OpenAPI/Swagger endpoints."""
 
-from django.urls import reverse
-
 
 def test_swagger_ui_is_available_with_or_without_trailing_slash(client):
     for path in ("/api/docs", "/api/docs/"):
