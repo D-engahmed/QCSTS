@@ -24,7 +24,7 @@ def _walk(patterns, prefix=""):
 
 def _api_routes():
     for route, callback in _walk(get_resolver().url_patterns):
-        if route.startswith(EXEMPT_PREFIXES):
+        if _is_exempt_route(route):
             continue
         cls = getattr(callback, "cls", None) or getattr(callback, "view_class", None)
         if cls is not None:
