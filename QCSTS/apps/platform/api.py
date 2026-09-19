@@ -1,6 +1,6 @@
 from rest_framework import serializers, viewsets
 from apps.platform.models import Organization, Site
-from apps.platform.permissions import CanCreateSites, CanDeleteSites, CanUpdateSites, CanViewSites
+from apps.platform.permissions import CanCreateSites, CanDeleteSites, CanUpdateSites, CanViewSites, HasTenantContext
 from apps.platform.services import TenantContextService
 from core.views import TenantExemptViewSet, TenantScopedModelViewSet
 
@@ -22,7 +22,7 @@ class SiteSerializer(serializers.ModelSerializer):
 class OrganizationViewSet(TenantExemptViewSet):
     """Organization discovery is membership-scoped and intentionally does not require a selected tenant."""
 
-    permission_classes = [CanViewSites]
+    permission_classes = [HasTenantContext]
     serializer_class = OrganizationSerializer
 
     def get_queryset(self):
