@@ -9,7 +9,7 @@ class PlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = Plan
         fields = "__all__"
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "code", "name", "description", "monthly_price", "annual_price", "currency", "max_users", "max_sites", "max_studies", "max_storage_mb", "api_access", "active", "created_at", "updated_at")
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
@@ -18,14 +18,14 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscription
         fields = "__all__"
-        read_only_fields = "__all__"
+        read_only_fields = ("id", "organization", "plan", "status", "interval", "provider", "provider_subscription_id", "trial_ends_at", "current_period_start", "current_period_end", "cancel_at_period_end", "canceled_at", "created_at", "updated_at")
 
 
 class UsageRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = UsageRecord
         fields = "__all__"
-        read_only_fields = "__all__"
+        read_only_fields = ("id", "organization", "metric", "period_start", "period_end", "quantity", "created_at")
 
 
 class PlanViewSet(TenantExemptViewSet):
