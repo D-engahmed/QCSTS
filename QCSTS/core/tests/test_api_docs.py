@@ -1,6 +1,6 @@
 """Regression tests for the public OpenAPI/Swagger endpoints."""
 
-import json
+import yaml
 
 
 def test_swagger_ui_is_available_with_or_without_trailing_slash(client):
@@ -15,6 +15,6 @@ def test_openapi_schema_is_available_with_or_without_trailing_slash(client):
         response = client.get(path)
         assert response.status_code == 200, response.content
         assert response["Content-Type"].startswith("application/vnd.oai.openapi")
-        payload = json.loads(response.content)
+        payload = yaml.safe_load(response.content)
         assert payload["openapi"].startswith("3.")
         assert payload["info"]["title"] == "QCSTS API"
