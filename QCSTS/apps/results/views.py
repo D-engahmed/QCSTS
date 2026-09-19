@@ -11,12 +11,13 @@ from apps.compliance.models import ElectronicSignature
 from services.signature_service import SignatureService
 from services.audit_service import AuditService
 from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager
+from apps.platform.permissions import HasTenantContext
 from core.responses import success_response, error_response
 
 
 class VerifySignatureView(TenantScopedAPIView):
     """Re-authenticate a user and issue a short-lived one-time workflow token."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasTenantContext]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signature"
 
