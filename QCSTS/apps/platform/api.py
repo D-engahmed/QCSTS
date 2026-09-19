@@ -1,4 +1,7 @@
-from rest_framework import serializers, viewsets
+from rest_framework import serializers
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
 from apps.platform.models import Organization, Site
 from apps.platform.permissions import CanCreateSites, CanDeleteSites, CanUpdateSites, CanViewSites
 from apps.platform.services import TenantContextService
@@ -20,20 +23,24 @@ class SiteSerializer(serializers.ModelSerializer):
 
 
 class OrganizationViewSet(TenantExemptViewSet):
-    """Organization discovery is membership-scoped and intentionally does not require a selected tenant."""
+    """Returns only the authenticated customer's single organization."""
 
-    permission_classes = []
-
-    def get_permissions(self):
-        from rest_framework.permissions import IsAuthenticated
-        return [IsAuthenticated()]
+    permission_classes = [IsAuthenticated]
     serializer_class = OrganizationSerializer
 
+    def list(self, request, *args, **kwargs):
+        TenantContextService.resolve(request)
+        return Response(self.get_serializer(request.organization).data)
+
+    def retrieve(self, request, *args, **kwargs):
+        TenantContextService.resolve(request)
+        if str(kwargs.get("pk")) != str(request.organization.id):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You cannot access another organization.")
+        return Response(self.get_serializer(request.organization).data)
+
     def get_queryset(self):
-        return Organization.objects.filter(
-            memberships__user=self.request.user,
-            memberships__is_active=True,
-        ).distinct()
+        return Organization.objects.filter(pk=self.request.user.membership.organization_id)
 
 
 class SiteViewSet(TenantScopedModelViewSet):
@@ -50,8 +57,11 @@ class SiteViewSet(TenantScopedModelViewSet):
             "partial_update": CanUpdateSites,
             "destroy": CanDeleteSites,
         }
-        permission_class = permission_map.get(self.action, CanViewSites)
-        return [permission_class()]
+        return [permission_map.get(self.action, CanViewSites)()]
+
+    def get_queryset(self):
+        TenantContextService.resolve(self.request)
+        queryset = Site.objects.filter(organization=self.request.organization)\n        if self.request.membership.role.scope == "SITE":\n            queryset = queryset.filter(pk=self.request.site.id)\n        return queryset
 
     def perform_create(self, serializer):
         TenantContextService.resolve(self.request)

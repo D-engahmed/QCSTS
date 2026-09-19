@@ -1,9 +1,4 @@
-"""Tenant-scoped API and viewset base classes.
-
-Every API surface must explicitly declare whether it is tenant-scoped or
-tenant-exempt. Tenant-scoped viewsets resolve the active organization before
-authorization and scope querysets to it.
-"""
+"""Tenant-scoped API base classes with one fixed customer authorization context."""
 
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
@@ -13,20 +8,14 @@ from apps.platform.services import TenantContextService
 
 
 class TenantExemptAPIView(APIView):
-    """Explicitly opts out of tenant scoping for legitimate non-tenant APIs."""
-
     tenant_scoped = False
 
 
 class PublicAPIView(TenantExemptAPIView):
-    """Unauthenticated entry points such as login."""
-
     pass
 
 
 class TenantScopedAPIView(APIView):
-    """Base class for organization-owned API endpoints."""
-
     tenant_scoped = True
 
     def perform_authentication(self, request):
@@ -56,8 +45,9 @@ class TenantScopedAPIView(APIView):
 
     def site_qs(self, queryset, field="site"):
         queryset = self.tenant_qs(queryset)
-        site = getattr(self.request, "site", None)
-        return queryset if site is None else queryset.filter(**{field: site})
+        if self.request.membership.role.scope == "ORGANIZATION":
+            return queryset
+        return queryset.filter(**{field: self.request.site})
 
     def tenant_create_kwargs(self, **extra):
         kwargs = {
@@ -69,14 +59,10 @@ class TenantScopedAPIView(APIView):
 
 
 class TenantExemptViewSet(ReadOnlyModelViewSet):
-    """Explicitly opts out of active-tenant scoping for a documented reason."""
-
     tenant_scoped = False
 
 
 class TenantScopedViewSet(ReadOnlyModelViewSet):
-    """Read-only tenant-scoped viewset with explicit authorization."""
-
     tenant_scoped = True
 
     def get_permissions(self):
@@ -97,12 +83,13 @@ class TenantScopedViewSet(ReadOnlyModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        return TenantContextService.scope_queryset(self.request, self.queryset)
+        queryset = TenantContextService.scope_queryset(self.request, self.queryset)
+        if self.request.membership.role.scope == "ORGANIZATION":
+            return queryset
+        return queryset.filter(site=self.request.site) if hasattr(self.queryset.model, "site") else queryset
 
 
 class TenantScopedModelViewSet(ModelViewSet):
-    """Full CRUD tenant-scoped viewset with explicit authorization."""
-
     tenant_scoped = True
 
     def get_permissions(self):
@@ -123,11 +110,19 @@ class TenantScopedModelViewSet(ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        return TenantContextService.scope_queryset(self.request, self.queryset)
+        queryset = TenantContextService.scope_queryset(self.request, self.queryset)
+        if self.request.membership.role.scope == "ORGANIZATION":
+            return queryset
+        if hasattr(self.queryset.model, "site"):
+            return queryset.filter(site=self.request.site)
+        return queryset
 
     def perform_create(self, serializer):
         TenantContextService.resolve(self.request)
-        serializer.save(
-            organization=self.request.organization,
-            created_by=self.request.user,
-        )
+        kwargs = {
+            "organization": self.request.organization,
+            "created_by": self.request.user,
+        }
+        if hasattr(serializer.Meta.model, "site"):
+            kwargs["site"] = self.request.site
+        serializer.save(**kwargs)
