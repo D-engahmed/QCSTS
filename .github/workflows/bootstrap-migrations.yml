@@ -1,0 +1,52 @@
+name: Bootstrap Django migrations
+
+on:
+  push:
+    branches:
+      - fix/production-readiness-audit
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.ref == 'refs/heads/fix/production-readiness-audit'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/production-readiness-audit
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend test dependencies
+        working-directory: QCSTS
+        run: pip install -r requirements/test.txt
+
+      - name: Generate migrations from current models
+        working-directory: QCSTS
+        env:
+          DATABASE_URL: sqlite:///migration_bootstrap.sqlite3
+          REDIS_URL: redis://127.0.0.1:6379/0
+          DJANGO_SECRET_KEY: migration-bootstrap-only
+          DEBUG: "False"
+        run: python manage.py makemigrations
+
+      - name: Commit generated migrations and remove bootstrap workflow
+        run: |
+          rm -f migration_bootstrap.sqlite3 QCSTS/migration_bootstrap.sqlite3
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add QCSTS/*/migrations QCSTS/migration_bootstrap.sqlite3 .github/workflows/bootstrap-migrations.yml
+          if git diff --cached --quiet; then
+            echo "No generated migration changes."
+            exit 0
+          fi
+          git rm -f .github/workflows/bootstrap-migrations.yml
+          git commit -m "fix(db): synchronize migrations with current models"
+          git push origin HEAD:fix/production-readiness-audit
