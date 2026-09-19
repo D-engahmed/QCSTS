@@ -202,7 +202,7 @@ class MeView(TenantExemptAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return success_response(data=UserSerializer(request.user).data)
+        return success_response(data=UserSerializer(request.user, context={"organization": request.user.membership.organization}).data)
 
 
 class ChangePasswordView(TenantExemptAPIView):
