@@ -78,7 +78,7 @@ class TenantScopedModelSerializer(serializers.ModelSerializer):
     # the build if a new organization-owned model's FK field is left off it.
     TENANT_OWNED_MODELS = {
         "Batch", "Product", "Monograph", "MonographTest",
-        "TestPoint", "TestResult", "SamplePull",
+        "TestPoint", "TestResult", "SamplePull", "Site",
     }
 
     def __init__(self, *args, **kwargs):

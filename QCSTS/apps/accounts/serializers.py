@@ -1,7 +1,7 @@
 from django.contrib.auth.hashers import check_password, make_password
 from rest_framework import serializers
 
-from apps.accounts.models import CustomUser
+from apps.accounts.models import CustomUser\nfrom apps.platform.models import Membership
 from core.exceptions import InvalidCredentialsError
 
 _DUMMY_HASH = make_password("qcsts-timing-equaliser")
