@@ -1,66 +1,90 @@
 # QCSTS Authorization Model
 
-## Principles
-Authorization is server-side, tenant-aware, site-aware, deny-by-default and state-aware. Frontend route hiding is UX, never security.
+## Customer identity boundary
 
-## Evaluation order
+A normal customer user has exactly one active authorization assignment:
+
 ```text
-Authenticated?
- -> Active organization membership?
- -> Valid site scope?
- -> Permission?
- -> Object policy?
- -> State transition allowed?
- -> Separation-of-duties check?
+CustomUser
+   -> Membership
+       -> Organization
+       -> Site
+       -> Role
 ```
 
-## Initial roles
-- Owner
-- Organization Admin
-- QA Manager
-- QC Manager
-- Supervisor
-- Analyst
-- Read Only
-- Service Account
+A customer user cannot belong to multiple organizations, multiple sites, or multiple customer roles simultaneously.
 
-## Permission codes
-Use stable `resource.action` codes, e.g.:
+Authentication remains on `CustomUser`. Business authorization is derived only from `Membership.role` and its permissions.
+
+## Context resolution
+
+The server derives:
+
 ```text
-organization.update
-user.invite
-role.manage
-product.create
-protocol.approve
-study.create
-study.approve
-sample.pull
-result.submit
-result.review
-result.approve
-signature.perform
-audit.view
-report.generate
-report.export
-billing.manage
-api.manage
-integration.manage
+organization = request.user.membership.organization
+site         = request.user.membership.site
+role         = request.user.membership.role
+```
+
+Organization and site headers, when retained for compatibility, may only assert the already assigned IDs. They cannot switch the user into another context.
+
+## Role scope
+
+Every role has an explicit scope:
+
+- `SITE`: operations are limited to the user's assigned site.
+- `ORGANIZATION`: operations may span sites inside the user's organization.
+
+The assigned site remains part of the user's identity context even for an organization-scoped role.
+
+## Evaluation order
+
+```text
+Authenticated?
+ -> Active user?
+ -> Active Membership?
+ -> Active organization/site?
+ -> Required permission?
+ -> Role scope?
+ -> Same organization?
+ -> Same site when SITE-scoped?
+ -> Object policy?
+ -> Workflow state?
+ -> Entitlement?
+ -> Separation-of-duties?
 ```
 
 ## Object-level policy
-A permission is not sufficient. The object must belong to the active organization and fall within site/state scope.
 
-## Separation of duties
-Default policy prevents an analyst from being the sole approver of the same regulated submission when a second-person review is required.
+UUIDs are identifiers, never authorization. Every tenant-owned query must constrain the object by the authenticated organization and, for site-scoped roles, the assigned site.
 
 ## Administration boundary
-Organization admins manage people/configuration but do not bypass regulated workflow controls.
 
-## Central policy service
-Provide a single policy API such as `policy.can(user, action, object)`; do not reproduce logic across views.
+Organization administrators manage organization-wide configuration and people, but do not bypass regulated workflow controls.
 
-## API behavior
-Do not reveal foreign-tenant existence unnecessarily. Use appropriate 404/403 semantics consistently.
+## Platform administrators
+
+Platform operators are a separate privileged boundary. A customer membership must never be converted into platform authority by setting organization/site fields to null.
+
+## Migration safety
+
+The single-assignment migration is fail-closed. It must not guess an organization, site, or role for ambiguous legacy data. Run:
+
+```bash
+python manage.py audit_single_tenant
+```
+
+before applying the enforcing migration.
 
 ## Tests
-Cover inactive memberships, suspended organizations, site restrictions, self-approval prevention, API scopes, custom roles and every critical regulated action.
+
+Regression coverage must include:
+- zero/multiple legacy memberships
+- zero/multiple legacy sites
+- foreign role/site
+- organization/site header switching attempts
+- foreign object UUIDs
+- inactive memberships
+- site-scoped vs organization-scoped roles
+- foreign-tenant create/update/delete/read attempts
+- background jobs, files, exports and caches
