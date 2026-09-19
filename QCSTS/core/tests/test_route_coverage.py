@@ -4,7 +4,7 @@ import pytest
 from django.urls import URLPattern, URLResolver, get_resolver
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from core.views import TenantExemptAPIView, TenantScopedAPIView
+from core.views import TenantExemptAPIView, TenantScopedAPIView, TenantExemptViewSet, TenantScopedViewSet
 
 EXEMPT_PREFIXES = (
     "admin/",
@@ -45,8 +45,8 @@ def test_the_walker_actually_finds_routes():
 
 @pytest.mark.parametrize("route,cls", list(_api_routes()), ids=lambda v: str(v))
 def test_every_route_declares_tenant_posture(route, cls):
-    scoped = issubclass(cls, TenantScopedAPIView)
-    exempt = issubclass(cls, TenantExemptAPIView)
+    scoped = issubclass(cls, (TenantScopedAPIView, TenantScopedViewSet))
+    exempt = issubclass(cls, (TenantExemptAPIView, TenantExemptViewSet))
 
     assert scoped or exempt, (
         f"{cls.__module__}.{cls.__name__} (route: {route}) inherits plain APIView. "
@@ -57,7 +57,7 @@ def test_every_route_declares_tenant_posture(route, cls):
 
 @pytest.mark.parametrize("route,cls", list(_api_routes()), ids=lambda v: str(v))
 def test_every_tenant_route_declares_action_authorization(route, cls):
-    if not issubclass(cls, TenantScopedAPIView):
+    if not issubclass(cls, (TenantScopedAPIView, TenantScopedViewSet)):
         return
 
     declared = cls.__dict__.get("permission_classes")
@@ -73,7 +73,7 @@ def test_every_tenant_route_declares_action_authorization(route, cls):
 
 def test_exempt_views_document_their_reason():
     for route, cls in _api_routes():
-        if issubclass(cls, TenantExemptAPIView):
+        if issubclass(cls, (TenantExemptAPIView, TenantExemptViewSet)):
             assert (cls.__doc__ or "").strip(), (
                 f"{cls.__name__} opts out of tenant scoping but gives no reason."
             )
