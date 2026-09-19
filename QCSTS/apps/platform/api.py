@@ -1,53 +1,28 @@
 from rest_framework import serializers, viewsets
-from rest_framework.permissions import IsAuthenticated
-
 from apps.platform.models import Organization, Site
-from apps.platform.permissions import (
-    CanCreateSites,
-    CanDeleteSites,
-    CanUpdateSites,
-    CanViewSites,
-)
+from apps.platform.permissions import CanCreateSites, CanDeleteSites, CanUpdateSites, CanViewSites
 from apps.platform.services import TenantContextService
+from core.views import TenantExemptViewSet, TenantScopedModelViewSet
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organization
-        fields = (
-            "id",
-            "name",
-            "legal_name",
-            "slug",
-            "country",
-            "timezone",
-            "currency",
-            "status",
-            "created_at",
-            "updated_at",
-        )
+        fields = ("id", "name", "legal_name", "slug", "country", "timezone", "currency", "status", "created_at", "updated_at")
         read_only_fields = ("id", "created_at", "updated_at")
 
 
 class SiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Site
-        fields = (
-            "id",
-            "organization",
-            "name",
-            "address",
-            "country",
-            "timezone",
-            "status",
-            "created_at",
-            "updated_at",
-        )
+        fields = ("id", "organization", "name", "address", "country", "timezone", "status", "created_at", "updated_at")
         read_only_fields = ("id", "organization", "created_at", "updated_at")
 
 
-class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
-    permission_classes = [IsAuthenticated]
+class OrganizationViewSet(TenantExemptViewSet):
+    """Organization discovery is membership-scoped and intentionally does not require a selected tenant."""
+
+    permission_classes = [CanViewSites]
     serializer_class = OrganizationSerializer
 
     def get_queryset(self):
@@ -57,10 +32,10 @@ class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
         ).distinct()
 
 
-class SiteViewSet(viewsets.ModelViewSet):
-    serializer_class = SiteSerializer
-
+class SiteViewSet(TenantScopedModelViewSet):
     permission_classes = [CanViewSites]
+    serializer_class = SiteSerializer
+    queryset = Site.objects.all()
 
     def get_permissions(self):
         permission_map = {
@@ -73,9 +48,6 @@ class SiteViewSet(viewsets.ModelViewSet):
         }
         permission_class = permission_map.get(self.action, CanViewSites)
         return [permission_class()]
-
-    def get_queryset(self):
-        return TenantContextService.scope_queryset(self.request, Site.objects.all())
 
     def perform_create(self, serializer):
         TenantContextService.resolve(self.request)
