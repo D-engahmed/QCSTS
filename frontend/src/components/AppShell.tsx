@@ -9,6 +9,7 @@ const groups:any[]=[
  {title:"Quality",items:[["OOS / OOT","/app/quality",ShieldCheck],["Deviations","/app/deviations",ClipboardCheck],["CAPA","/app/capa",ShieldCheck],["Audit & Compliance","/app/audit",ShieldCheck]]},
  {title:"Master Data",items:[["Products & Batches","/app/master-data",Database],["Protocols","/app/protocols",ClipboardCheck],["Specifications","/app/specifications",FileCheck2],["Reports & Analytics","/app/analytics",BarChart3]]}
 ];
+/** Renders authenticated navigation around protected workspace content. */
 export default function AppShell({children}:{children:React.ReactNode}){
  const pathname=usePathname(),[open,setOpen]=useState(false);const {user,organizations,sites,organization,site,selectOrganization,selectSite,logout,loading}=useAuth();
  if(pathname==="/"||pathname==="/login")return <>{children}</>;if(loading)return <div className="loading-screen"><div className="spinner"/><span>Loading secure workspace…</span></div>;if(!user)return <>{children}</>;

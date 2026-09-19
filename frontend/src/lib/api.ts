@@ -4,6 +4,7 @@ export type ApiOptions = RequestInit & { token?: string; organizationId?: string
 export type ApiEnvelope<T> = { success: boolean; data: T; message?: string };
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+/** Converts an API error payload into a user-facing message. */
 function errorMessage(payload: unknown, status: number) {
   if (payload && typeof payload === "object") {
     const p = payload as { message?: string; errors?: Record<string,string[]|string> };
@@ -12,12 +13,14 @@ function errorMessage(payload: unknown, status: number) {
   }
   return "Request failed (" + status + ")";
 }
+/** Exchanges the stored refresh token for a new access token. */
 async function refreshAccess() {
   const refresh=authStorage.refresh; if(!refresh) return null;
   const r=await fetch(API_URL+"/auth/token/refresh/",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh})});
   if(!r.ok) return null; const p=await r.json(); if(!p.access) return null;
   localStorage.setItem("qc_access_token",p.access); return p.access as string;
 }
+/** Sends an authenticated, tenant-aware request to the backend API. */
 export async function api<T>(path:string, options:ApiOptions={}):Promise<T>{
   const {token,organizationId,siteId,skipRefresh,...init}=options;
   const headers=new Headers(init.headers);

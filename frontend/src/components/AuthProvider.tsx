@@ -5,6 +5,7 @@ import {authStorage} from "@/lib/auth";
 import type {User,Organization,Site} from "@/lib/auth";
 type C={user:User|null;organizations:Organization[];sites:Site[];organization:Organization|null;site:Site|null;loading:boolean;login:(e:string,p:string)=>Promise<void>;logout:()=>Promise<void>;selectOrganization:(id:string)=>Promise<void>;selectSite:(id:string|null)=>void};
 const AuthContext=createContext<C|null>(null);
+/** Provides session and tenant-selection state to the application. */
 export function AuthProvider({children}:{children:React.ReactNode}){
  const [user,setUser]=useState<User|null>(authStorage.user),[organizations,setOrganizations]=useState<Organization[]>([]),[sites,setSites]=useState<Site[]>([]),[loading,setLoading]=useState(true);
  const load=async()=>{if(!authStorage.access){setLoading(false);return}try{
@@ -20,4 +21,5 @@ export function AuthProvider({children}:{children:React.ReactNode}){
  const value=useMemo(()=>({user,organizations,sites,organization:organizations.find(x=>x.id===authStorage.organizationId)||null,site:sites.find(x=>x.id===authStorage.siteId)||null,loading,login,logout,selectOrganization,selectSite:(id:string|null)=>authStorage.setSite(id)}),[user,organizations,sites,loading]);
  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+/** Returns the authentication context for a component inside AuthProvider. */
 export function useAuth(){const c=useContext(AuthContext);if(!c)throw new Error("useAuth must be used inside AuthProvider");return c}
