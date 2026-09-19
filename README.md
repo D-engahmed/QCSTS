@@ -227,7 +227,107 @@ npm run dev
 npm run build
 ~~~
 
-## 9. Testing
+## 9. Running QCSTS — Local, Pre-Production, Production
+
+Local tests prove code behavior; pre-production proves the deployment against production-like infrastructure; production proves the released artifact.
+
+### 9.1 Local test
+~~~bash
+cp QCSTS/.env.example QCSTS/.env
+docker compose -f QCSTS/docker/docker-compose.yml up -d --build
+docker compose -f QCSTS/docker/docker-compose.yml ps
+docker compose -f QCSTS/docker/docker-compose.yml exec web python manage.py check
+docker compose -f QCSTS/docker/docker-compose.yml exec web python manage.py makemigrations --check --dry-run
+docker compose -f QCSTS/docker/docker-compose.yml exec web python manage.py migrate --plan
+docker compose -f QCSTS/docker/docker-compose.yml exec web pytest -q
+docker compose -f QCSTS/docker/docker-compose.yml exec frontend npm run build
+~~~
+
+Smoke tests:
+~~~bash
+curl http://localhost/api/health/
+curl http://localhost/api/schema/
+~~~
+
+Open: `http://localhost:5173` (frontend), `http://localhost/api/docs/` (Swagger), `http://localhost/admin/` (admin).
+
+Logs:
+~~~bash
+docker compose -f QCSTS/docker/docker-compose.yml logs -f web
+docker compose -f QCSTS/docker/docker-compose.yml logs -f celery
+docker compose -f QCSTS/docker/docker-compose.yml logs -f frontend
+~~~
+
+Stop with `docker compose -f QCSTS/docker/docker-compose.yml down`.
+Use `down -v` only for a destructive local reset. Never use it against production.
+
+### 9.2 Pre-production test
+
+Pre-production must use PostgreSQL, Redis, Celery and `config.settings.production`. Do not use SQLite as production-readiness evidence.
+
+~~~bash
+cp QCSTS/.env.production.example QCSTS/.env
+docker compose -f QCSTS/docker/docker-compose.production.yml config
+docker compose -f QCSTS/docker/docker-compose.production.yml up -d --build
+docker compose -f QCSTS/docker/docker-compose.production.yml ps
+docker compose -f QCSTS/docker/docker-compose.production.yml exec web python manage.py check --deploy
+docker compose -f QCSTS/docker/docker-compose.production.yml exec web python manage.py makemigrations --check --dry-run
+docker compose -f QCSTS/docker/docker-compose.production.yml exec web pytest -q
+~~~
+
+Set real pre-production values for `DEBUG=False`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, database credentials, Redis password and `DJANGO_SECRET_KEY`.
+
+Smoke tests:
+~~~bash
+curl -f https://<preprod-host>/api/health/
+curl -f https://<preprod-host>/api/schema/
+~~~
+
+Run one complete workflow: Login → Organization/Site → Product/Batch → Stability Study → Protocol/Specification → Timepoint/Sample Pull → Result → Review → Approval → E-signature → Lock → Report.
+
+Security checks must include cross-organization read/write denial, site isolation, privilege-escalation denial, inactive-membership denial, e-signature throttling, locked-record protection and payment-event idempotency.
+
+Verify workers with `docker compose -f QCSTS/docker/docker-compose.production.yml logs --tail=200 web celery celery-beat db redis`.
+
+**Do not promote** if migrations, tests, frontend build, security checks, health checks or the critical workflow fail.
+
+### 9.3 Production run
+
+Production must use the same commit/image that passed pre-production.
+
+~~~bash
+git checkout main
+git pull --ff-only
+git rev-parse HEAD
+docker compose -f QCSTS/docker/docker-compose.production.yml config
+docker compose -f QCSTS/docker/docker-compose.production.yml up -d --build
+docker compose -f QCSTS/docker/docker-compose.production.yml ps
+docker compose -f QCSTS/docker/docker-compose.production.yml exec web python manage.py check --deploy
+docker compose -f QCSTS/docker/docker-compose.production.yml exec web python manage.py showmigrations --plan
+~~~
+
+Then inspect web/Celery logs and verify:
+1. HTTPS and health endpoint.
+2. Login and tenant isolation.
+3. One representative stability workflow.
+4. Review/approval/e-signature.
+5. Reporting.
+6. Celery background processing.
+7. Audit events.
+8. Backup status.
+9. No unexpected 5xx responses.
+
+### 9.4 Rollback
+
+Capture `docker compose ... ps` and recent web/Celery logs before changing anything. Restore the previous application image/commit using the deployment mechanism. Treat database rollback separately; never assume an old Django migration is a safe production rollback. For destructive or irreversible changes, use the verified backup/restore procedure.
+
+### 9.5 Release sequence
+
+`LOCAL → CI → PRE-PRODUCTION → BACKUP/RESTORE VERIFIED → SECURITY/DATA-INTEGRITY SMOKE TEST → PRODUCTION → POST-DEPLOYMENT MONITORING`.
+
+A green unit-test run alone is not production approval.
+
+## 10. Testing
 
 ~~~bash
 python manage.py check
@@ -243,7 +343,7 @@ npm run build
 
 Security-sensitive changes require negative tests, not only happy-path tests. At minimum, cover cross-organization reads/updates/deletes, organization spoofing, site boundary violations, missing permissions, privilege escalation, inactive memberships, unauthorized file/report access, and duplicate or invalid payment events.
 
-## 10. Production release gates
+## 11. Production release gates
 
 These roadmap gates are sequential. A merged PR is not, by itself, evidence that the system is production-ready.
 
@@ -266,7 +366,7 @@ These roadmap gates are sequential. A merged PR is not, by itself, evidence that
 | PR27 | #36 | Full E2E / security regression gates |
 | PR28 | #37 | Validation-ready pilot / production release package |
 
-## 11. Production readiness model
+## 12. Production readiness model
 
 ~~~text
 Code implemented
@@ -294,7 +394,7 @@ Production release
 
 QCSTS should not be described as a certified regulated system unless the required evidence and external/customer-specific activities actually exist.
 
-## 12. Critical data integrity workflow
+## 13. Critical data integrity workflow
 
 ~~~text
 Draft → Review → Approve → Sign → Lock
@@ -304,7 +404,7 @@ After controlled locking/signature, ordinary mutation must not silently change t
 
 Electronic signatures must identify the signer and signing event. Authentication credentials alone are not a complete electronic-signature and audit workflow.
 
-## 13. Auditability
+## 14. Auditability
 
 Critical events should provide enough evidence to answer:
 
@@ -320,7 +420,7 @@ WHY / REASON WHEN REQUIRED
 
 Audit records are security-sensitive data and must not be editable or deletable by ordinary application users.
 
-## 14. Regulatory positioning
+## 15. Regulatory positioning
 
 QCSTS is designed with regulated pharmaceutical environments in mind, including controlled records, auditability, access control, electronic signatures, data integrity, and validation evidence.
 
@@ -336,7 +436,7 @@ Preferred positioning:
 
 > **Designed for GxP-regulated environments with a validation-ready architecture.**
 
-## 15. Contributor security rules
+## 16. Contributor security rules
 
 Before opening a production PR:
 
@@ -351,14 +451,14 @@ Before opening a production PR:
 9. Never commit secrets.
 10. Fix security failures in implementation rather than weakening tests.
 
-## 16. Documentation
+## 17. Documentation
 
 - Backend architecture and API documentation: QCSTS/README.md
 - API documentation: QCSTS/API_DOCUMENTATION.md
 - Engineering documentation: docs/
 - Production release gates: docs/release-gates/
 
-## 17. Project status
+## 18. Project status
 
 QCSTS has moved from feature development toward production hardening and controlled release engineering.
 
