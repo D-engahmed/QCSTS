@@ -1,39 +1,33 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
-from apps.platform.services import TenantContextService
+from core.views import TenantScopedViewSet
 from .models import CAPA, ChangeControl, Deviation, OOSInvestigation, OOTInvestigation
 from .serializers import CAPASerializer, ChangeControlSerializer, DeviationSerializer, OOSInvestigationSerializer, OOTInvestigationSerializer
+from apps.platform.permissions import HasTenantContext
 
 
-class TenantScopedViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
-    def get_queryset(self):
-        return TenantContextService.scope_queryset(self.request, self.queryset)
-    def perform_create(self, serializer):
-        TenantContextService.resolve(self.request)
-        serializer.save(organization=self.request.organization)
+class QualityTenantViewSet(TenantScopedViewSet):
+    permission_classes = [HasTenantContext]
 
 
-class OOSInvestigationViewSet(TenantScopedViewSet):
+class OOSInvestigationViewSet(QualityTenantViewSet):
     queryset = OOSInvestigation.objects.select_related("result", "owner")
     serializer_class = OOSInvestigationSerializer
 
 
-class OOTInvestigationViewSet(TenantScopedViewSet):
+class OOTInvestigationViewSet(QualityTenantViewSet):
     queryset = OOTInvestigation.objects.select_related("result", "owner")
     serializer_class = OOTInvestigationSerializer
 
 
-class DeviationViewSet(TenantScopedViewSet):
+class DeviationViewSet(QualityTenantViewSet):
     queryset = Deviation.objects.select_related("owner")
     serializer_class = DeviationSerializer
 
 
-class CAPAViewSet(TenantScopedViewSet):
+class CAPAViewSet(QualityTenantViewSet):
     queryset = CAPA.objects.select_related("owner")
     serializer_class = CAPASerializer
 
 
-class ChangeControlViewSet(TenantScopedViewSet):
+class ChangeControlViewSet(QualityTenantViewSet):
     queryset = ChangeControl.objects.select_related("owner")
     serializer_class = ChangeControlSerializer
