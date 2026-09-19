@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from apps.platform.services import TenantContextService
 from apps.platform.permissions import HasTenantContext
 from core.views import TenantScopedViewSet, TenantExemptViewSet
 from .models import Plan, Subscription, UsageRecord
