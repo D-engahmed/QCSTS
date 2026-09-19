@@ -2,6 +2,7 @@ import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
 from apps.accounts.tests.factories import UserFactory, AdminFactory
+from apps.accounts.models import CustomUser
 
 
 @pytest.fixture
@@ -187,3 +188,68 @@ class TestChangePasswordView:
             {"current_password": "WrongPassword!", "new_password": "NewSecurePass123!"},
         )
         assert response.status_code == 400
+
+
+@pytest.mark.django_db
+class TestOrganizationRegistration:
+    def test_register_creates_tenant_owner_and_returns_tokens(self, client):
+        response = client.post(
+            "/api/v1/auth/register/",
+            {
+                "organization_name": "Acme Pharma",
+                "legal_name": "Acme Pharma Ltd.",
+                "slug": "acme-pharma",
+                "country": "eg",
+                "timezone": "Africa/Cairo",
+                "currency": "EGP",
+                "site_name": "Cairo QC Lab",
+                "site_address": "Cairo, Egypt",
+                "full_name": "Lab Administrator",
+                "email": "owner@acme-pharma.example",
+                "password": "VerySecurePass123!",
+            },
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["success"] is True
+        assert response.data["data"]["user"]["organization_role"] == "admin"
+        assert response.data["data"]["organization"]["slug"] == "acme-pharma"
+        assert response.data["data"]["site"]["name"] == "Cairo QC Lab"
+
+        user = CustomUser.objects.get(email="owner@acme-pharma.example")
+        membership = user.memberships.select_related("organization", "role").get()
+        assert membership.organization.slug == "acme-pharma"
+        assert membership.role.name == "admin"
+        assert membership.is_active is True
+
+    def test_register_rejects_duplicate_email(self, client):
+        UserFactory()
+        response = client.post(
+            "/api/v1/auth/register/",
+            {
+                "organization_name": "Another Pharma",
+                "country": "EG",
+                "full_name": "Another Owner",
+                "email": "user0@cqsts.com",
+                "password": "VerySecurePass123!",
+            },
+            format="json",
+        )
+        assert response.status_code == 400
+        assert "email" in response.data["errors"]
+
+    def test_register_rejects_duplicate_slug(self, client):
+        response = client.post(
+            "/api/v1/auth/register/",
+            {
+                "organization_name": "First Pharma",
+                "slug": "test-organization",
+                "country": "EG",
+                "full_name": "Owner",
+                "email": "new-owner@example.com",
+                "password": "VerySecurePass123!",
+            },
+            format="json",
+        )
+        assert response.status_code == 400
+        assert "slug" in response.data["errors"]
