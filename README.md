@@ -147,7 +147,7 @@ QCSTS/
 └── README.md
 ~~~
 
-The repository currently contains both QCSTS_frontend/ and frontend/. Do not assume they are interchangeable; use the active application configuration and package metadata when working on the frontend.
+The repository contains both QCSTS_frontend/ and frontend/. **QCSTS_frontend/** is the active Vite/React application wired into the Docker Compose stack. **frontend/** is not part of the current production deployment; treat it as inactive/experimental until it is explicitly promoted and integrated.
 
 ## 5. Quick start — Docker
 
@@ -184,7 +184,23 @@ docker compose -f QCSTS/docker/docker-compose.yml down
 
 Never use development secrets in a real deployment.
 
-## 6. Manual backend setup
+## 6. Production deployment
+
+Use the dedicated production stack rather than the local-development Compose file:
+
+```bash
+cp QCSTS/.env.production.example QCSTS/.env
+# replace every placeholder, including the real public host and TLS certificate files
+mkdir -p QCSTS/docker/certs
+# place fullchain.pem and privkey.pem in QCSTS/docker/certs/
+docker compose -f QCSTS/docker/docker-compose.production.yml up -d --build
+```
+
+The production stack explicitly loads `config.settings.production`, does not publish PostgreSQL or Redis ports, requires non-default database/Redis credentials, and terminates HTTPS in Nginx. Do not use `.env.example` or the development Compose stack for a real deployment.
+
+Before release, run migrations and the full security/integration test gates against a production-like PostgreSQL environment. A clean container start is not evidence that the migration graph is synchronized.
+
+## 7. Manual backend setup
 
 ~~~bash
 cd QCSTS
@@ -202,7 +218,7 @@ python manage.py runserver
 
 Configure DATABASE_URL and REDIS_URL for the local PostgreSQL and Redis services.
 
-## 7. Frontend development
+## 8. Frontend development
 
 ~~~bash
 cd QCSTS_frontend
@@ -211,7 +227,7 @@ npm run dev
 npm run build
 ~~~
 
-## 8. Testing
+## 9. Testing
 
 ~~~bash
 python manage.py check
@@ -227,7 +243,7 @@ npm run build
 
 Security-sensitive changes require negative tests, not only happy-path tests. At minimum, cover cross-organization reads/updates/deletes, organization spoofing, site boundary violations, missing permissions, privilege escalation, inactive memberships, unauthorized file/report access, and duplicate or invalid payment events.
 
-## 9. Production release gates
+## 10. Production release gates
 
 These roadmap gates are sequential. A merged PR is not, by itself, evidence that the system is production-ready.
 
@@ -250,7 +266,7 @@ These roadmap gates are sequential. A merged PR is not, by itself, evidence that
 | PR27 | #36 | Full E2E / security regression gates |
 | PR28 | #37 | Validation-ready pilot / production release package |
 
-## 10. Production readiness model
+## 11. Production readiness model
 
 ~~~text
 Code implemented
@@ -278,7 +294,7 @@ Production release
 
 QCSTS should not be described as a certified regulated system unless the required evidence and external/customer-specific activities actually exist.
 
-## 11. Critical data integrity workflow
+## 12. Critical data integrity workflow
 
 ~~~text
 Draft → Review → Approve → Sign → Lock
@@ -288,7 +304,7 @@ After controlled locking/signature, ordinary mutation must not silently change t
 
 Electronic signatures must identify the signer and signing event. Authentication credentials alone are not a complete electronic-signature and audit workflow.
 
-## 12. Auditability
+## 13. Auditability
 
 Critical events should provide enough evidence to answer:
 
@@ -304,7 +320,7 @@ WHY / REASON WHEN REQUIRED
 
 Audit records are security-sensitive data and must not be editable or deletable by ordinary application users.
 
-## 13. Regulatory positioning
+## 14. Regulatory positioning
 
 QCSTS is designed with regulated pharmaceutical environments in mind, including controlled records, auditability, access control, electronic signatures, data integrity, and validation evidence.
 
@@ -320,7 +336,7 @@ Preferred positioning:
 
 > **Designed for GxP-regulated environments with a validation-ready architecture.**
 
-## 14. Contributor security rules
+## 15. Contributor security rules
 
 Before opening a production PR:
 
@@ -335,14 +351,14 @@ Before opening a production PR:
 9. Never commit secrets.
 10. Fix security failures in implementation rather than weakening tests.
 
-## 15. Documentation
+## 16. Documentation
 
 - Backend architecture and API documentation: QCSTS/README.md
 - API documentation: QCSTS/API_DOCUMENTATION.md
 - Engineering documentation: docs/
 - Production release gates: docs/release-gates/
 
-## 16. Project status
+## 17. Project status
 
 QCSTS has moved from feature development toward production hardening and controlled release engineering.
 
