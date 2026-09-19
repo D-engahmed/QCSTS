@@ -61,7 +61,7 @@ class SiteViewSet(TenantScopedModelViewSet):
 
     def get_queryset(self):
         TenantContextService.resolve(self.request)
-        return Site.objects.filter(organization=self.request.organization)
+        queryset = Site.objects.filter(organization=self.request.organization)\n        if self.request.membership.role.scope == "SITE":\n            queryset = queryset.filter(pk=self.request.site.id)\n        return queryset
 
     def perform_create(self, serializer):
         TenantContextService.resolve(self.request)
