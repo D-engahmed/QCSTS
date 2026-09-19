@@ -1,6 +1,6 @@
 import { authStorage } from "./auth";
 
-export type ApiOptions = RequestInit & { token?: string; organizationId?: string; siteId?: string; skipRefresh?: boolean };
+export type ApiOptions = RequestInit & { token?: string; skipRefresh?: boolean };
 export type ApiEnvelope<T> = { success: boolean; data: T; message?: string };
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
@@ -19,12 +19,10 @@ async function refreshAccess() {
   localStorage.setItem("qc_access_token",p.access); return p.access as string;
 }
 export async function api<T>(path:string, options:ApiOptions={}):Promise<T>{
-  const {token,organizationId,siteId,skipRefresh,...init}=options;
+  const {token,skipRefresh,...init}=options;
   const headers=new Headers(init.headers);
   if(init.body && !headers.has("Content-Type")) headers.set("Content-Type","application/json");
   const access=token ?? authStorage.access; if(access) headers.set("Authorization","Bearer "+access);
-  const org=organizationId ?? authStorage.organizationId; const site=siteId ?? authStorage.siteId;
-  if(org) headers.set("X-Organization-ID",org); if(site) headers.set("X-Site-ID",site);
   const response=await fetch(API_URL+path,{...init,headers,credentials:"include",cache:"no-store"});
   if(response.status===401 && !skipRefresh && typeof window!=="undefined"){
     const renewed=await refreshAccess();
