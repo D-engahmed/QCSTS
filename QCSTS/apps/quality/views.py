@@ -1,10 +1,10 @@
-from core.views import TenantScopedViewSet
+from core.views import TenantScopedModelViewSet
 from .models import CAPA, ChangeControl, Deviation, OOSInvestigation, OOTInvestigation
 from .serializers import CAPASerializer, ChangeControlSerializer, DeviationSerializer, OOSInvestigationSerializer, OOTInvestigationSerializer
 from apps.platform.permissions import HasTenantContext
 
 
-class QualityTenantViewSet(TenantScopedViewSet):
+class QualityTenantViewSet(TenantScopedModelViewSet):
     permission_classes = [HasTenantContext]
 
 
