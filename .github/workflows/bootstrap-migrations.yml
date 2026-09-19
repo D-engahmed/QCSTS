@@ -42,7 +42,7 @@ jobs:
           rm -f migration_bootstrap.sqlite3 QCSTS/migration_bootstrap.sqlite3
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add QCSTS/*/migrations QCSTS/migration_bootstrap.sqlite3 .github/workflows/bootstrap-migrations.yml
+          git add -A QCSTS .github/workflows/bootstrap-migrations.yml
           if git diff --cached --quiet; then
             echo "No generated migration changes."
             exit 0
