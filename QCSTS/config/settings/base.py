@@ -408,3 +408,28 @@ LOGGING = {
         "level": "INFO",
     },
 }
+# Swagger / OpenAPI presentation
+SPECTACULAR_SETTINGS.update({
+    "TITLE": "QCSTS API",
+    "DESCRIPTION": "QCSTS Quality Control & Stability Testing API. Customer authorization is fixed to one organization, one site, and one role per active membership.",
+    "VERSION": "1.0.0",
+    "TAGS": [
+        {"name": "Authentication", "description": "Login, logout, current user context, password and session operations."},
+        {"name": "Platform / Organizations", "description": "Current organization and organization administration."},
+        {"name": "Platform / Sites", "description": "Sites belonging to the current organization. Customer users have one assigned site; organization-scoped administrators may manage authorized sites."},
+        {"name": "Platform / Users & Memberships", "description": "Customer users, invitations, and one-to-one organization/site/role assignments."},
+        {"name": "Billing", "description": "Organization subscriptions, plans, invoices, payments and usage."},
+        {"name": "Products", "description": "Organization-owned products, monographs and controlled product data."},
+        {"name": "Batches", "description": "Organization/site-owned production batches."},
+        {"name": "Stability", "description": "Protocols, specifications and stability studies."},
+        {"name": "Chambers", "description": "Site-owned stability chambers and operational locations."},
+        {"name": "Schedule / Test Points", "description": "Site-scoped stability schedules and test points."},
+        {"name": "Results", "description": "Site-scoped test results, review and controlled correction workflow."},
+        {"name": "Quality", "description": "OOS, OOT, deviations, CAPA and change control."},
+        {"name": "Compliance", "description": "Electronic signatures, controlled records and validation artifacts."},
+        {"name": "Reports", "description": "Authorized operational and quality reports."},
+        {"name": "Audit", "description": "Tenant-aware audit records and audit history."},
+    ],
+    "TAGS_SORTER": "alpha",
+    "SCHEMA_PATH_PREFIX": "/api",
+})
