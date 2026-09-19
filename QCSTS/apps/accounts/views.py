@@ -94,7 +94,6 @@ class RegisterView(PublicAPIView):
             email=data["email"],
             password=data["password"],
             full_name=data["full_name"],
-            role="admin",
         )
 
         role = Role.objects.create(
@@ -124,10 +123,8 @@ class RegisterView(PublicAPIView):
             user=user,
             organization=organization,
             role=role,
-            default_site=site,
+            site=site,
         )
-        if site:
-            membership.sites.add(site)
 
         AuditService.log(
             performed_by=user,
@@ -205,7 +202,7 @@ class MeView(TenantExemptAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return success_response(data=UserSerializer(request.user).data)
+        return success_response(data=UserSerializer(request.user, context={"organization": request.user.membership.organization}).data)
 
 
 class ChangePasswordView(TenantExemptAPIView):
@@ -256,7 +253,7 @@ class UserListCreateView(TenantScopedAPIView):
         AuditService.log(
             performed_by=request.user, action="CREATE", model_name="CustomUser",
             object_id=user.id, object_repr=str(user),
-            new_value={"email": user.email, "role": role_name},
+            new_value={"email": user.email, "role": role_name, "site_id": str(site.id)},
             ip_address=request.META.get("REMOTE_ADDR"),
             organization=request.organization,
         )

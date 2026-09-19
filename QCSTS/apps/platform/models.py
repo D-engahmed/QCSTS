@@ -55,8 +55,6 @@ class Site(models.Model):
 
 
 class Permission(models.Model):
-    """A centrally managed application permission, independent of Django admin permissions."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.SlugField(max_length=100, unique=True)
     name = models.CharField(max_length=120)
@@ -73,8 +71,6 @@ class Permission(models.Model):
 
 
 class Role(models.Model):
-    """Organization-scoped role with centrally defined capabilities."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="roles", null=True, blank=True
@@ -83,6 +79,11 @@ class Role(models.Model):
     description = models.TextField(blank=True)
     permissions = models.ManyToManyField(Permission, related_name="roles", blank=True)
     is_system = models.BooleanField(default=False)
+    scope = models.CharField(
+        max_length=20,
+        choices=[("SITE", "Site"), ("ORGANIZATION", "Organization")],
+        default="SITE",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -98,33 +99,46 @@ class Role(models.Model):
 
 
 class Membership(models.Model):
-    """Server-side authorization link between an identity and an organization."""
+    """Exactly one customer authorization context for an identity."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships")
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="memberships")
-    role = models.ForeignKey(Role, on_delete=models.PROTECT, related_name="memberships")
-    sites = models.ManyToManyField(Site, related_name="memberships", blank=True)
-    default_site = models.ForeignKey(
-        Site, on_delete=models.SET_NULL, related_name="default_for_memberships", null=True, blank=True
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="membership",
     )
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="memberships"
+    )
+    site = models.ForeignKey(
+        Site, on_delete=models.PROTECT, related_name="memberships"
+    )
+    role = models.ForeignKey(Role, on_delete=models.PROTECT, related_name="memberships")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "platform_membership"
-        constraints = [models.UniqueConstraint(fields=["user", "organization"], name="one_membership_per_org")]
-        indexes = [models.Index(fields=["user", "is_active"]), models.Index(fields=["organization", "is_active"])]
+        constraints = [
+            models.UniqueConstraint(fields=["user"], name="one_membership_per_user"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+            models.Index(fields=["organization", "is_active"]),
+            models.Index(fields=["site", "is_active"]),
+        ]
 
     def clean(self):
+        if self.site_id and self.site.organization_id != self.organization_id:
+            raise ValidationError({"site": "The site must belong to the membership organization."})
         if self.role_id and self.role.organization_id not in (None, self.organization_id):
             raise ValidationError({"role": "The role must belong to this organization or be a system role."})
-        if self.default_site_id and self.default_site.organization_id != self.organization_id:
-            raise ValidationError({"default_site": "The default site must belong to this organization."})
+        if self.role_id and self.role.scope == "ORGANIZATION":
+            return
 
     def has_permission(self, code):
         return self.role.permissions.filter(code=code).exists()
 
     def __str__(self):
-        return f"{self.user} @ {self.organization}"
+        return f"{self.user} @ {self.organization} / {self.site}"

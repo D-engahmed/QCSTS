@@ -1,9 +1,10 @@
 import uuid
 from datetime import timedelta
 
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -16,24 +17,15 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        extra_fields.setdefault("role", "admin")
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
 
-class CustomUser(AbstractBaseUser, PermissionsMixin):
-    ROLE_CHOICES = [
-        ("admin", "Admin"),
-        ("qa_manager", "QA Manager"),
-        ("supervisor", "Supervisor"),
-        ("analyst", "Analyst"),
-        ("system", "System"),   # New System Role
-    ]
 
+class CustomUser(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=255)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="analyst") # Fixed String
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     failed_login_attempts = models.IntegerField(default=0)
@@ -59,11 +51,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f"{self.full_name} ({self.email})"
 
-    # Repeated failures lock the account for a WINDOW. They must not set
-    # is_active=False: that flag is the soft-delete marker, so a permanent
-    # lockout made a locked account indistinguishable from a deleted one and
-    # handed anyone who knew an email address a free, irreversible denial of
-    # service. A self-expiring window stops brute force without that.
     LOCKOUT_THRESHOLD = 5
     LOCKOUT_MINUTES = 15
 
