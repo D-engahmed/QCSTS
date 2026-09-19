@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from apps.platform.permissions import HasTenantContext
+from rest_framework.permissions import IsAuthenticated
 from core.views import TenantScopedViewSet, TenantExemptViewSet
 from .models import Plan, Subscription, UsageRecord
 
@@ -30,7 +31,7 @@ class UsageRecordSerializer(serializers.ModelSerializer):
 class PlanViewSet(TenantExemptViewSet):
     """Plans are global catalog data, not organization-owned records."""
 
-    permission_classes = [HasTenantContext]
+    permission_classes = [IsAuthenticated]
     serializer_class = PlanSerializer
     queryset = Plan.objects.filter(active=True)
 
