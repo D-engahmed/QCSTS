@@ -3,10 +3,12 @@ import hmac
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models
-from core.models import BaseModel
+from core.models import BaseModel, ActiveManager
 
 
 class ElectronicSignature(BaseModel):
+    objects = ActiveManager()
+    all_objects = models.Manager()
     class Meaning(models.TextChoices):
         REVIEW = "review", "Review"; APPROVAL = "approval", "Approval"; REJECTION = "rejection", "Rejection"; RELEASE = "release", "Release"; CLOSURE = "closure", "Closure"
     signer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="electronic_signatures")
@@ -27,6 +29,8 @@ class ElectronicSignature(BaseModel):
 
 
 class ControlledRecord(BaseModel):
+    objects = ActiveManager()
+    all_objects = models.Manager()
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"; SUBMITTED = "submitted", "Submitted"; UNDER_REVIEW = "under_review", "Under review"; APPROVED = "approved", "Approved"; REJECTED = "rejected", "Rejected"; LOCKED = "locked", "Locked"; CORRECTION = "correction", "Correction required"
     record_type = models.CharField(max_length=120); record_id = models.UUIDField(); version = models.PositiveIntegerField(default=1); status = models.CharField(max_length=24, choices=Status.choices, default=Status.DRAFT); locked_at = models.DateTimeField(null=True, blank=True)
@@ -46,6 +50,8 @@ class ControlledRecord(BaseModel):
 
 
 class ValidationArtifact(BaseModel):
+    objects = ActiveManager()
+    all_objects = models.Manager()
     class Type(models.TextChoices):
         URS = "urs", "URS"; FRS = "frs", "FRS"; RISK = "risk", "Risk Assessment"; TRACEABILITY = "traceability", "Traceability Matrix"; IQ = "iq", "IQ"; OQ = "oq", "OQ"; PQ = "pq", "PQ"; SUMMARY = "summary", "Validation Summary"
     artifact_type = models.CharField(max_length=32, choices=Type.choices); version = models.CharField(max_length=64); title = models.CharField(max_length=255); content_hash = models.CharField(max_length=128); approved = models.BooleanField(default=False); approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="approved_validation_artifacts"); approved_at = models.DateTimeField(null=True, blank=True)
