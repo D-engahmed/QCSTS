@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 
 from core.views import TenantScopedAPIView
 from apps.results.models import TestResult, ResultReview, ResultCorrection
@@ -16,6 +17,8 @@ from core.responses import success_response, error_response
 class VerifySignatureView(TenantScopedAPIView):
     """Re-authenticate a user and issue a short-lived one-time workflow token."""
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "signature"
 
     def post(self, request):
         password = request.data.get("password")
