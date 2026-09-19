@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.utils.text import slugify
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
