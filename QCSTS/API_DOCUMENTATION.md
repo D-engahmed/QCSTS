@@ -11,6 +11,41 @@
 
 ## Authentication
 
+### Organization Registration (public)
+New companies/laboratories do **not** use the admin-only user-management endpoint for their first account. The first organization administrator is created through:
+
+    POST /auth/register/
+
+**Body:**
+```json
+{
+  "organization_name": "Acme Pharma",
+  "legal_name": "Acme Pharma Ltd.",
+  "slug": "acme-pharma",
+  "country": "EG",
+  "timezone": "Africa/Cairo",
+  "currency": "EGP",
+  "site_name": "Cairo QC Lab",
+  "site_address": "Cairo, Egypt",
+  "full_name": "Lab Administrator",
+  "email": "owner@acme-pharma.com",
+  "password": "VerySecurePass123!"
+}
+```
+
+`slug` is optional; when omitted it is generated from the organization name. The endpoint atomically creates:
+- the organization;
+- the first site when `site_name` is supplied;
+- the registering user;
+- an organization-scoped `admin` role;
+- the user's active membership;
+- the initial platform site-management permissions.
+
+The response returns access/refresh JWTs plus the created organization, site, and membership.
+
+**Important:** this endpoint is tenant bootstrap only. It does not let a caller choose an arbitrary role or organization. Existing-tenant staff are created by an organization administrator through `POST /auth/users/`.
+
+
 ### Login
 ```
 POST /auth/login/
