@@ -4,7 +4,7 @@ import pytest
 from django.urls import URLPattern, URLResolver, get_resolver
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from core.views import TenantExemptAPIView, TenantScopedAPIView, TenantExemptViewSet, TenantScopedViewSet
+from core.views import TenantExemptAPIView, TenantScopedAPIView, TenantExemptViewSet, TenantScopedViewSet, TenantScopedModelViewSet
 
 EXEMPT_PREFIXES = (
     "admin/",
@@ -35,6 +35,9 @@ def _api_routes():
             continue
         cls = getattr(callback, "cls", None) or getattr(callback, "view_class", None)
         if cls is not None:
+            # DRF router index views are generated framework endpoints, not application resources.
+            if cls.__module__ == "rest_framework.routers":
+                continue
             yield route, cls
 
 
@@ -45,7 +48,7 @@ def test_the_walker_actually_finds_routes():
 
 @pytest.mark.parametrize("route,cls", list(_api_routes()), ids=lambda v: str(v))
 def test_every_route_declares_tenant_posture(route, cls):
-    scoped = issubclass(cls, (TenantScopedAPIView, TenantScopedViewSet))
+    scoped = issubclass(cls, (TenantScopedAPIView, TenantScopedViewSet, TenantScopedModelViewSet))
     exempt = issubclass(cls, (TenantExemptAPIView, TenantExemptViewSet))
 
     assert scoped or exempt, (
