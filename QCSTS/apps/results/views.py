@@ -7,7 +7,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from core.views import TenantScopedAPIView
 from apps.results.models import TestResult, ResultReview, ResultCorrection
 from apps.results.serializers import TestResultSerializer, ResultReviewSerializer, ResultCorrectionSerializer
-from apps.compliance.models import ElectronicSignature
+from apps.compliance.models import ElectronicSignature, ControlledRecord
 from services.signature_service import SignatureService
 from services.audit_service import AuditService
 from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager

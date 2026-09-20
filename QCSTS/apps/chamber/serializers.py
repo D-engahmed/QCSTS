@@ -41,14 +41,26 @@ class SamplePullSerializer(TenantScopedModelSerializer):
         from django.db import transaction
 
         with transaction.atomic():
-            batch = validated_data["batch"]
+            batch_id = validated_data["batch"].pk
+            batch = Batch.objects.select_for_update().get(
+                pk=batch_id,
+                organization=validated_data["batch"].organization,
+                is_active=True,
+            )
             qty_pulled = validated_data["qty_pulled"]
             test_point = validated_data.get("test_point")
 
-            # Reduce qty_remaining on the batch
+            # Re-check after acquiring the row lock. The serializer-level
+            # validation alone is not safe against concurrent sample pulls.
+            if qty_pulled > batch.qty_remaining:
+                raise InsufficientQuantity(
+                    f"Cannot pull {qty_pulled}. Only {batch.qty_remaining} remaining."
+                )
+
             batch.qty_remaining -= qty_pulled
             batch.save(update_fields=["qty_remaining", "updated_at"])
 
+            validated_data["batch"] = batch
             pull = SamplePull.objects.create(**validated_data)
 
             # --- NEW LOGIC: Update TestPoint status to "pulled" ---

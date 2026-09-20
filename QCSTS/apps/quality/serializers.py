@@ -5,7 +5,7 @@ from .models import CAPA, ChangeControl, Deviation, OOSInvestigation, OOTInvesti
 class TenantSerializer(serializers.ModelSerializer):
     class Meta:
         fields = "__all__"
-        read_only_fields = ("organization",)
+        read_only_fields = ("organization", "status", "closed_at", "created_by", "owner")
 
 
 class OOSInvestigationSerializer(TenantSerializer):
