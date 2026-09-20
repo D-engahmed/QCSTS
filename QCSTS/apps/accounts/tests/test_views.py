@@ -3,6 +3,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from apps.accounts.tests.factories import UserFactory, AdminFactory
 from apps.accounts.models import CustomUser
+from apps.platform.models import Organization
 
 
 @pytest.fixture
@@ -223,33 +224,36 @@ class TestOrganizationRegistration:
         assert membership.is_active is True
 
     def test_register_rejects_duplicate_email(self, client):
-        UserFactory()
-        response = client.post(
-            "/api/v1/auth/register/",
-            {
-                "organization_name": "Another Pharma",
-                "country": "EG",
-                "full_name": "Another Owner",
-                "email": "user0@cqsts.com",
-                "password": "VerySecurePass123!",
-            },
-            format="json",
-        )
-        assert response.status_code == 400
-        assert "email" in response.data["errors"]
+    existing_user = UserFactory()
+    response = client.post(
+        "/api/v1/auth/register/",
+        {
+            "organization_name": "Another Pharma",
+            "country": "EG",
+            "full_name": "Another Owner",
+            "email": existing_user.email,   # was: "user0@cqsts.com"
+            "password": "VerySecurePass123!",
+        },
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "email" in response.data["errors"]
 
-    def test_register_rejects_duplicate_slug(self, client):
-        response = client.post(
-            "/api/v1/auth/register/",
-            {
-                "organization_name": "First Pharma",
-                "slug": "test-organization",
-                "country": "EG",
-                "full_name": "Owner",
-                "email": "new-owner@example.com",
-                "password": "VerySecurePass123!",
-            },
-            format="json",
-        )
-        assert response.status_code == 400
-        assert "slug" in response.data["errors"]
+def test_register_rejects_duplicate_slug(self, client):
+    Organization.objects.create(
+        slug="test-organization", name="Test Org", country="EG"
+    )
+    response = client.post(
+        "/api/v1/auth/register/",
+        {
+            "organization_name": "First Pharma",
+            "slug": "test-organization",
+            "country": "EG",
+            "full_name": "Owner",
+            "email": "new-owner@example.com",
+            "password": "VerySecurePass123!",
+        },
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "slug" in response.data["errors"]

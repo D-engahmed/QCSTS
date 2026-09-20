@@ -21,6 +21,8 @@ from services.audit_service import AuditService
 
 
 class LoginView(PublicAPIView):
+    """Authenticates a user before any tenant context exists."""
+
     serializer_class = LoginSerializer
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
@@ -182,6 +184,8 @@ class RegisterView(PublicAPIView):
 
 
 class LogoutView(TenantExemptAPIView):
+    """Blacklists a refresh token; operates on the token, not an organization."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -202,6 +206,8 @@ class LogoutView(TenantExemptAPIView):
 
 
 class MeView(TenantExemptAPIView):
+    """Returns the caller's own identity, independent of any selected tenant."""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -209,6 +215,8 @@ class MeView(TenantExemptAPIView):
 
 
 class ChangePasswordView(TenantExemptAPIView):
+    """Changes the caller's own credential; not an organization-scoped resource."""
+
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
 
