@@ -8,7 +8,15 @@ export type ApiOptions = RequestInit & {
 };
 export type ApiEnvelope<T> = { success: boolean; data: T; message?: string; errors?: unknown };
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api/v1").replace(/\/$/, "");
+const configuredApiUrl = (
+  process.env.NEXT_PUBLIC_API_URL ?? "/api/backend"
+).replace(/\/$/, "");
+
+const API_URL =
+  typeof window !== "undefined" &&
+  /^https?:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d+)?\\/api\\/v1$/i.test(configuredApiUrl)
+    ? "/api/backend"
+    : configuredApiUrl;
 
 function errorMessage(payload: unknown, status: number) {
   if (payload && typeof payload === "object") {
