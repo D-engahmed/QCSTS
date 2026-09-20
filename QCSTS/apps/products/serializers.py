@@ -40,7 +40,7 @@ class MonographSerializer(serializers.ModelSerializer):
 class MonographCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Monograph
-        fields = ["name", "version", "effective_date", "status"]
+        fields = ["name", "version", "effective_date"]
 
 
 class ProductSerializer(TenantScopedModelSerializer):
