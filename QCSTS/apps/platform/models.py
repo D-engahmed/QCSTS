@@ -55,8 +55,6 @@ class Site(models.Model):
 
 
 class Permission(models.Model):
-    """A centrally managed application permission, independent of Django admin permissions."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.SlugField(max_length=100, unique=True)
     name = models.CharField(max_length=120)
@@ -73,8 +71,6 @@ class Permission(models.Model):
 
 
 class Role(models.Model):
-    """Organization-scoped role with centrally defined capabilities."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="roles", null=True, blank=True
@@ -98,8 +94,6 @@ class Role(models.Model):
 
 
 class Membership(models.Model):
-    """Server-side authorization link between an identity and an organization."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships")
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="memberships")
@@ -114,7 +108,14 @@ class Membership(models.Model):
 
     class Meta:
         db_table = "platform_membership"
-        constraints = [models.UniqueConstraint(fields=["user", "organization"], name="one_membership_per_org")]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "organization"], name="one_membership_per_org"),
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(is_active=True),
+                name="one_active_membership_per_user",
+            ),
+        ]
         indexes = [models.Index(fields=["user", "is_active"]), models.Index(fields=["organization", "is_active"])]
 
     def clean(self):
