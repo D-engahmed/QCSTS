@@ -1,13 +1,17 @@
 from config.settings.base import *
 import os
 
-# Use fast in-memory SQLite for tests — no PostgreSQL needed
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
+# Use PostgreSQL in CI when CI_DATABASE_URL is supplied; keep SQLite for local tests.
+CI_DATABASE_URL = os.environ.get("CI_DATABASE_URL")
+if CI_DATABASE_URL:
+    DATABASES = {"default": env.db_url_config(CI_DATABASE_URL)}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
     }
-}
 
 # Disable Redis for tests — use local memory cache instead
 CACHES = {
