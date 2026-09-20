@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: qcsts-${{ github.workflow }}-${{ github.ref }}
@@ -100,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
-          path: QCSTS/coverage.xml
+          path: coverage.xml
           if-no-files-found: error
 
   frontend:
