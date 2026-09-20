@@ -1,23 +1,185 @@
 "use client";
-import {createContext,useContext,useEffect,useMemo,useState} from "react";
-import {api,endpoints,type ApiEnvelope} from "@/lib/api";
-import {authStorage} from "@/lib/auth";
-import type {User,Organization,Site} from "@/lib/auth";
-type C={user:User|null;organizations:Organization[];sites:Site[];organization:Organization|null;site:Site|null;loading:boolean;login:(e:string,p:string)=>Promise<void>;logout:()=>Promise<void>;selectOrganization:(id:string)=>Promise<void>;selectSite:(id:string|null)=>void};
-const AuthContext=createContext<C|null>(null);
-export function AuthProvider({children}:{children:React.ReactNode}){
- const [user,setUser]=useState<User|null>(authStorage.user),[organizations,setOrganizations]=useState<Organization[]>([]),[sites,setSites]=useState<Site[]>([]),[loading,setLoading]=useState(true);
- const load=async()=>{if(!authStorage.access){setLoading(false);return}try{
-  const me=await api<ApiEnvelope<User>>(endpoints.me);setUser(me.data);authStorage.setUser(me.data);
-  const orgs=await api<ApiEnvelope<Organization[]>>(endpoints.organizations);setOrganizations(orgs.data||[]);
-  const org=orgs.data?.find(x=>x.id===authStorage.organizationId)||orgs.data?.[0];
-  if(org){authStorage.setOrganization(org.id);const ss=await api<ApiEnvelope<Site[]>>(endpoints.sites,{organizationId:org.id});setSites(ss.data||[]);if(!ss.data?.some(x=>x.id===authStorage.siteId))authStorage.setSite(ss.data?.[0]?.id||null)}
- }catch{authStorage.clear();setUser(null)}finally{setLoading(false)}};
- useEffect(()=>{void load()},[]);
- const login=async(email:string,password:string)=>{const r=await api<ApiEnvelope<{access:string;refresh:string;user:User}>>(endpoints.login,{method:"POST",body:JSON.stringify({email,password}),skipRefresh:true});authStorage.setSession(r.data.access,r.data.refresh,r.data.user);setUser(r.data.user);const os=await api<ApiEnvelope<Organization[]>>(endpoints.organizations,{token:r.data.access});setOrganizations(os.data||[]);if(os.data?.[0]){authStorage.setOrganization(os.data[0].id);const ss=await api<ApiEnvelope<Site[]>>(endpoints.sites,{token:r.data.access,organizationId:os.data[0].id});setSites(ss.data||[]);authStorage.setSite(ss.data?.[0]?.id||null)}};
- const logout=async()=>{try{if(authStorage.refresh)await api(endpoints.logout,{method:"POST",body:JSON.stringify({refresh:authStorage.refresh}),skipRefresh:true})}finally{authStorage.clear();setUser(null);window.location.assign("/login")}};
- const selectOrganization=async(id:string)=>{authStorage.setOrganization(id);authStorage.setSite(null);const r=await api<ApiEnvelope<Site[]>>(endpoints.sites,{organizationId:id});setSites(r.data||[]);authStorage.setSite(r.data?.[0]?.id||null)};
- const value=useMemo(()=>({user,organizations,sites,organization:organizations.find(x=>x.id===authStorage.organizationId)||null,site:sites.find(x=>x.id===authStorage.siteId)||null,loading,login,logout,selectOrganization,selectSite:(id:string|null)=>authStorage.setSite(id)}),[user,organizations,sites,loading]);
- return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { api, endpoints, type ApiEnvelope, type AuthResponse, type RegistrationInput } from "@/lib/api";
+import { authStorage } from "@/lib/auth";
+import type { User, Organization, Site, Membership } from "@/lib/auth";
+
+type AuthContextValue = {
+  user: User | null;
+  organizations: Organization[];
+  sites: Site[];
+  membership: Membership | null;
+  organization: Organization | null;
+  site: Site | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (input: RegistrationInput) => Promise<void>;
+  logout: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+function applyAuthResponse(response: AuthResponse) {
+  authStorage.setSession(response.access, response.refresh, response.user, {
+    organization: response.organization,
+    site: response.site,
+    membership: response.membership,
+  });
 }
-export function useAuth(){const c=useContext(AuthContext);if(!c)throw new Error("useAuth must be used inside AuthProvider");return c}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(authStorage.user);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadSession = async () => {
+    if (!authStorage.access) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const me = await api<ApiEnvelope<User>>(endpoints.me);
+      setUser(me.data);
+      authStorage.setUser(me.data);
+
+      const orgResponse = await api<ApiEnvelope<Organization[]>>(endpoints.organizations);
+      const orgList = orgResponse.data ?? [];
+      setOrganizations(orgList);
+
+      const activeOrganization =
+        orgList.find((item) => item.id === authStorage.organizationId) ?? orgList[0] ?? null;
+
+      if (!activeOrganization) {
+        authStorage.setOrganization(null);
+        authStorage.setSite(null);
+        setSites([]);
+        return;
+      }
+
+      authStorage.setOrganization(activeOrganization.id);
+
+      const siteResponse = await api<ApiEnvelope<Site[]>>(endpoints.sites, {
+        organizationId: activeOrganization.id,
+      });
+      const siteList = siteResponse.data ?? [];
+      setSites(siteList);
+
+      const activeSite =
+        siteList.find((item) => item.id === authStorage.siteId) ?? siteList[0] ?? null;
+      authStorage.setSite(activeSite?.id ?? null);
+    } catch {
+      authStorage.clear();
+      setUser(null);
+      setOrganizations([]);
+      setSites([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadSession();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    const response = await api<ApiEnvelope<AuthResponse>>(endpoints.login, {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+      skipRefresh: true,
+    });
+
+    applyAuthResponse(response.data);
+    setUser(response.data.user);
+
+    const orgResponse = await api<ApiEnvelope<Organization[]>>(endpoints.organizations, {
+      token: response.data.access,
+    });
+    const orgList = orgResponse.data ?? [];
+    setOrganizations(orgList);
+
+    if (orgList[0]) {
+      authStorage.setOrganization(orgList[0].id);
+      const siteResponse = await api<ApiEnvelope<Site[]>>(endpoints.sites, {
+        token: response.data.access,
+        organizationId: orgList[0].id,
+      });
+      const siteList = siteResponse.data ?? [];
+      setSites(siteList);
+      authStorage.setSite(siteList[0]?.id ?? null);
+    } else {
+      authStorage.setOrganization(null);
+      authStorage.setSite(null);
+      setSites([]);
+    }
+  };
+
+  const register = async (input: RegistrationInput) => {
+    const response = await api<ApiEnvelope<AuthResponse>>(endpoints.register, {
+      method: "POST",
+      body: JSON.stringify(input),
+      skipRefresh: true,
+    });
+
+    applyAuthResponse(response.data);
+    setUser(response.data.user);
+
+    if (response.data.organization) {
+      setOrganizations([response.data.organization]);
+      authStorage.setOrganization(response.data.organization.id);
+    } else {
+      setOrganizations([]);
+      authStorage.setOrganization(null);
+    }
+
+    setSites(response.data.site ? [response.data.site] : []);
+    authStorage.setSite(response.data.site?.id ?? null);
+  };
+
+  const logout = async () => {
+    const refresh = authStorage.refresh;
+
+    try {
+      if (refresh && authStorage.access) {
+        await api(endpoints.logout, {
+          method: "POST",
+          body: JSON.stringify({ refresh }),
+          skipRefresh: true,
+        });
+      }
+    } finally {
+      authStorage.clear();
+      setUser(null);
+      setOrganizations([]);
+      setSites([]);
+      window.location.assign("/login");
+    }
+  };
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      organizations,
+      sites,
+      membership: authStorage.membership,
+      organization:
+        organizations.find((item) => item.id === authStorage.organizationId) ?? null,
+      site: sites.find((item) => item.id === authStorage.siteId) ?? null,
+      loading,
+      login,
+      register,
+      logout,
+    }),
+    [user, organizations, sites, loading],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used inside AuthProvider");
+  return context;
+}

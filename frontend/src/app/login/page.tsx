@@ -1,3 +1,99 @@
-"use client";
-import {FormEvent,useEffect,useState} from "react";import Link from "next/link";import {ArrowRight,ShieldCheck} from "lucide-react";import {useAuth} from "@/components/AuthProvider";
-export default function Login(){const {user,login}=useAuth();const [email,setEmail]=useState(""),[password,setPassword]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");useEffect(()=>{if(user)window.location.replace("/app")},[user]);async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError("");try{await login(email.trim(),password);window.location.assign("/app")}catch(x){setError(x instanceof Error?x.message:"Unable to sign in.")}finally{setBusy(false)}}return <main className="auth-page"><div className="auth-brand"><Link className="brand" href="/"><div className="brand-mark">Q</div><div><strong>QCSTS</strong><small>Quality & Stability</small></div></Link></div><div className="auth-card"><span className="eyebrow">SECURE WORKSPACE</span><h1>Sign in to QCSTS</h1><p>Use your organization account to access controlled quality and stability workflows.</p>{error&&<div className="form-error" role="alert">{error}</div>}<form onSubmit={submit}><label className="field"><span>Work email</span><input value={email} onChange={e=>setEmail(e.target.value)} type="email" autoComplete="username" required placeholder="name@company.com"/></label><label className="field"><span>Password</span><input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="current-password" required/></label><button className="btn primary full" disabled={busy}>{busy?"Signing in…":"Sign in"} {!busy&&<ArrowRight size={15}/>}</button></form><div className="security-note"><ShieldCheck size={16}/><span>Authentication and tenant authorization are controlled server-side.</span></div><Link className="back-link" href="/">← Back to QCSTS</Link></div></main>}
+ "use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
+
+export default function Login() {
+  const { user, login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (user) window.location.replace("/app");
+  }, [user]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+
+    try {
+      await login(email.trim(), password);
+      window.location.assign("/app");
+    } catch (value) {
+      setError(value instanceof Error ? value.message : "Unable to sign in.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="auth-page">
+      <div className="auth-brand">
+        <Link className="brand" href="/">
+          <div className="brand-mark">Q</div>
+          <div>
+            <strong>QCSTS</strong>
+            <small>Quality & Stability</small>
+          </div>
+        </Link>
+      </div>
+
+      <div className="auth-card">
+        <span className="eyebrow">SECURE WORKSPACE</span>
+        <h1>Sign in to QCSTS</h1>
+        <p>Use your organization account to access controlled quality and stability workflows.</p>
+
+        {error && <div className="form-error" role="alert">{error}</div>}
+
+        <form onSubmit={submit}>
+          <label className="field">
+            <span>Work email</span>
+            <input
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              autoComplete="username"
+              required
+              placeholder="name@company.com"
+            />
+          </label>
+
+          <label className="field">
+            <span>Password</span>
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </label>
+
+          <button className="btn primary full" disabled={busy}>
+            {busy ? "Signing in…" : "Sign in"}
+            {!busy && <ArrowRight size={15} />}
+          </button>
+        </form>
+
+        <div className="security-note">
+          <ShieldCheck size={16} />
+          <span>Authentication and tenant authorization are controlled server-side.</span>
+        </div>
+
+        <div className="auth-alt">
+          <span>New pharmaceutical organization?</span>
+          <Link href="/register">Create your workspace</Link>
+        </div>
+
+        <Link className="back-link" href="/">
+          ← Back to QCSTS
+        </Link>
+      </div>
+    </main>
+  );
+}
