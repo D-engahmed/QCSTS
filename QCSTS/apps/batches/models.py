@@ -58,7 +58,13 @@ class Batch(BaseModel):
     class Meta:
         db_table = "batches_batch"
         ordering = ["-created_at"]
-        constraints = [\n            models.UniqueConstraint(\n                fields=["organization", "shelf", "rack", "position"],\n                condition=models.Q(is_active=True),\n                name="active_chamber_location_per_org",\n            )\n        ]\n        indexes = [
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "shelf", "rack", "position"],
+                condition=models.Q(is_active=True),
+                name="active_chamber_location_per_org",
+            )
+        ]\n        indexes = [
             models.Index(fields=["batch_number"]),
             models.Index(fields=["status"]),
             models.Index(fields=["study_type"]),
