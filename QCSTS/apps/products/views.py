@@ -2,7 +2,7 @@ from core.views import TenantScopedAPIView
 from rest_framework import status
 from django.utils import timezone
 
-from apps.products.models import Monograph, MonographTest, Product
+from apps.products.models import Monograph, MonographTest, Product\nfrom apps.compliance.models import ElectronicSignature\nfrom services.signature_service import SignatureService
 from apps.products.serializers import (
     MonographSerializer,
     MonographCreateSerializer,
@@ -96,11 +96,29 @@ class MonographApproveView(TenantScopedAPIView):
         if monograph.is_approved():
             raise MonographAlreadyApproved()
 
+        token = request.headers.get("X-Signature-Token")
+        if not token or not SignatureService.validate(request.user, token):
+            return error_response("Valid electronic signature authentication is required.", status_code=403)
+        reason = request.data.get("reason", "").strip()
+        if not reason:
+            return error_response("Approval reason is required.", status_code=400)
+
         old_value = {"status": monograph.status}
         monograph.status = "approved"
         monograph.approved_by = request.user
         monograph.approved_at = timezone.now()
         monograph.save()
+
+        signature = ElectronicSignature.issue(
+            organization=request.organization,
+            signer=request.user,
+            record_type="Monograph",
+            record_id=monograph.id,
+            record_version=str(monograph.version),
+            meaning=ElectronicSignature.Meaning.APPROVAL,
+            reason=reason,
+            authentication_secret=__import__("django.conf", fromlist=["settings"]).settings.SECRET_KEY,
+        )
 
         AuditService.log(
             performed_by=request.user,
@@ -109,8 +127,9 @@ class MonographApproveView(TenantScopedAPIView):
             object_id=monograph.id,
             object_repr=str(monograph),
             old_value=old_value,
-            new_value={"status": "approved"},
+            new_value={"status": "approved", "signature_id": str(signature.id)},
             ip_address=request.META.get("REMOTE_ADDR"),
+            organization=request.organization,
         )
         return success_response(
             data=MonographSerializer(monograph).data, message="Monograph approved successfully."
@@ -208,7 +227,7 @@ class ProductDetailView(TenantScopedAPIView):
         if not product:
             return error_response({"detail": "Product not found."}, status.HTTP_404_NOT_FOUND)
         old_value = ProductSerializer(product).data
-        serializer = ProductSerializer(product, data=request.data, partial=True)
+        serializer = ProductSerializer(product, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
