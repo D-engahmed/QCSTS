@@ -31,7 +31,7 @@ services:
     restart: "no"
     env_file:
       - ../.env.production
-    command: python manage.py migrate --noinput
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput"
     depends_on:
       db:
         condition: service_healthy
