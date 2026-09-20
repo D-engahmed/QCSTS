@@ -38,14 +38,23 @@ jobs:
       - name: Migration graph is synchronized
         run: python manage.py makemigrations --check --dry-run
 
-      - name: Run backend test suite
-        run: pytest -q
+      - name: Lint
+        run: ruff check .
+
+      - name: Run backend test suite with coverage
+        run: pytest -q --cov=apps --cov=core --cov=services --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+
+      - name: Upload backend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: QCSTS/coverage.xml
 
   frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: QCSTS_frontend
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -53,7 +62,10 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: QCSTS_frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
-      - run: npm run build
+      - name: TypeScript typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
