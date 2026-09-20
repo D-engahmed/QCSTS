@@ -140,7 +140,6 @@ export const endpoints = {
   studyBatches: "/stability/study-batches/",
   testPoints: "/test-points/",
   samples: "/stability/samples/",
-  timepoints: "/stability/timepoints/",
   results: "/results/",
   chambers: "/chamber/",
   audit: "/audit/",
