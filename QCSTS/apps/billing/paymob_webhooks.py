@@ -74,6 +74,9 @@ class PaymobTransactionWebhookView(APIView):
         event.processed_at = timezone.now()
         event.save(update_fields=["payload", "event_type", "processed", "processed_at"])
 
+        invoice.provider_transaction_id = transaction_id
+        invoice.save(update_fields=["provider_transaction_id"])
+
         if bool(obj.get("success")) and not obj.get("is_refunded") and not obj.get("is_voided"):
             invoice.status = Invoice.Status.PAID
             invoice.paid_at = timezone.now()
