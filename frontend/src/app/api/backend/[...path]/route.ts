@@ -21,7 +21,10 @@ async function handler(
   context: { params: Promise<{ path: string[] }> },
 ) {
   const { path } = await context.params;
-  const target = `${BACKEND_API_URL}/${path.join("/")}`;
+
+  // QCSTS Django endpoints use trailing-slash URLs. Next.js route params
+  // normalize the incoming proxy path, so append the slash explicitly.
+  const target = `${BACKEND_API_URL}/${path.join("/")}/${request.nextUrl.search}`;
 
   const headers = new Headers();
   for (const name of FORWARDED_HEADERS) {
@@ -50,6 +53,11 @@ async function handler(
   if (contentType) responseHeaders.set("content-type", contentType);
   if (cacheControl) responseHeaders.set("cache-control", cacheControl);
   if (setCookie) responseHeaders.set("set-cookie", setCookie);
+
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location");
+    if (location) responseHeaders.set("location", location);
+  }
 
   return new Response(response.body, {
     status: response.status,
