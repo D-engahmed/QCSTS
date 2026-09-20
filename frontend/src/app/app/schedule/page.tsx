@@ -15,8 +15,7 @@ export default function SchedulePage(){
  const load=async()=>{
   setLoading(true);setError("");
   try{
-   const params=filter?{status:filter}:{};
-   const r=await api<ApiEnvelope<TestPoint[]>>("/test-points/"+(filter?"?status="+encodeURIComponent(filter):""));
+    const r=await api<ApiEnvelope<TestPoint[]>>("/test-points/"+(filter?"?status="+encodeURIComponent(filter):""));
    setRows(Array.isArray(r.data)?r.data:[]);
   }catch(v){setError(v instanceof Error?v.message:"Unable to load scheduled test points.")}finally{setLoading(false)}
  };
