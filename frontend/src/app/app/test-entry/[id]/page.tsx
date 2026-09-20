@@ -33,10 +33,17 @@ export default function TestEntryPage(){
  const submit=async(reason:string,password:string)=>{
   setBusy(true);setError("");
   try{
-   const signature=await api<ApiEnvelope<{signature_token:string}>>("/results/signature/verify/",{method:"POST",body:JSON.stringify({password})});
    for(const test of tests){
     const value=(values[test.id]||"").trim();
     if(!value) throw new Error("All configured tests must have a result before submission.");
+
+    // SignatureService issues one-time tokens. Never reuse a token across
+    // multiple result submissions.
+    const signature=await api<ApiEnvelope<{signature_token:string}>>("/results/signature/verify/",{
+      method:"POST",
+      body:JSON.stringify({password}),
+    });
+
     await api("/results/",{method:"POST",headers:{"X-Signature-Token":signature.data.signature_token},body:JSON.stringify({
       test_point:id,monograph_test:test.id,value,unit:test.unit||"",notes:reason||""
     })});
