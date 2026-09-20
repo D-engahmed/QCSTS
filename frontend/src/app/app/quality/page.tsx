@@ -87,7 +87,7 @@ export default function QualityPage() {
         <section className="card table-card" key={key}>
           <div className="card-header">
             <div><strong>{label}</strong><span>{data[key]?.length ?? 0} records</span></div>
-            <Link className="btn" href={"/app/" + key}>Open queue</Link>
+            <Link className="btn" href={"/app/quality/" + key}>Open queue</Link>
           </div>
           <div className="table-wrap">
             <table>
