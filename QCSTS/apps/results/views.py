@@ -119,6 +119,24 @@ class QAApproveResultView(TenantScopedAPIView):
             record_id=result.id, record_version="1", meaning=ElectronicSignature.Meaning.APPROVAL,
             reason=comments.strip() or "QA approval decision.", authentication_secret=settings.SECRET_KEY,
         )
+        controlled, _ = ControlledRecord.objects.get_or_create(
+            organization=request.organization,
+            record_type="TestResult",
+            record_id=result.id,
+            defaults={
+                "created_by": request.user,
+                "status": ControlledRecord.Status.APPROVED,
+                "approved_by": request.user,
+                "approved_at": __import__("django.utils.timezone", fromlist=["now"]).now(),
+            },
+        )
+        if controlled.status != ControlledRecord.Status.LOCKED:
+            controlled.status = ControlledRecord.Status.APPROVED
+            controlled.approved_by = request.user
+            controlled.approved_at = __import__("django.utils.timezone", fromlist=["now"]).now()
+            controlled.save(update_fields=["status", "approved_by", "approved_at", "updated_at"])
+            controlled.lock(request.user)
+
         AuditService.log(
             performed_by=request.user, action="APPROVE", model_name="TestResult", object_id=result.id,
             object_repr=str(result), old_value={"workflow_state": "under_review"},
@@ -181,6 +199,16 @@ class CorrectResultView(TenantScopedAPIView):
         reason = request.data.get("reason", "").strip()
         if not reason:
             return error_response("A reason for the correction is required.", status_code=400)
+        controlled = ControlledRecord.objects.filter(
+            organization=request.organization,
+            record_type="TestResult",
+            record_id=result_id,
+        ).first()
+        if controlled and controlled.status == ControlledRecord.Status.LOCKED:
+            return error_response(
+                "Approved result is locked. Create a controlled correction record instead.",
+                status_code=409,
+            )
         original_result = get_object_or_404(
             TestResult.objects.select_related("test_point", "monograph_test"),
             id=result_id, organization=request.organization, is_active=True,
