@@ -20,6 +20,9 @@ environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 
+# Paymob webhook HMAC secret. Never commit a real value.
+PAYMOB_HMAC_SECRET = env("PAYMOB_HMAC_SECRET", default="")
+
 DEBUG = env.bool("DEBUG", default=False)
 
 ALLOWED_HOSTS = env.list(
