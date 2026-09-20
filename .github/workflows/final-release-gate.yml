@@ -1,0 +1,94 @@
+name: QCSTS Final Release Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qcsts-final-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend release gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: qcsts_test
+          POSTGRES_USER: qcsts
+          POSTGRES_PASSWORD: qcsts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qcsts -d qcsts_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: QCSTS
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DATABASE_URL: postgres://qcsts:qcsts@127.0.0.1:5432/qcsts_test
+      REDIS_URL: redis://127.0.0.1:6379/0
+      DJANGO_SECRET_KEY: ci-only-secret
+      SECRET_KEY: ci-only-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: QCSTS/requirements/test.txt
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements/test.txt
+      - run: pip check
+      - run: python manage.py check --deploy
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py migrate --noinput
+      - run: pytest -q
+        env:
+          PYTHONWARNINGS: error
+
+  frontend:
+    name: Frontend release gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: QCSTS_frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: QCSTS_frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  production-images:
+    name: Production image build gate
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f QCSTS/docker/docker-compose.production.yml config
+      - run: docker compose -f QCSTS/docker/docker-compose.production.yml build --pull
