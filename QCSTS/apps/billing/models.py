@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 
 class Plan(models.Model):
@@ -66,7 +68,11 @@ class Subscription(models.Model):
     class Meta:
         db_table = "billing_subscription"
         constraints = [
-            models.UniqueConstraint(fields=["organization"], condition=models.Q(status__in=["trialing", "active", "past_due"]), name="one_current_subscription_per_org"),
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=models.Q(status__in=["trialing", "active", "past_due"]),
+                name="one_current_subscription_per_org",
+            ),
         ]
         indexes = [
             models.Index(fields=["organization", "status"]),
@@ -89,6 +95,8 @@ class Invoice(models.Model):
     organization = models.ForeignKey("platform.Organization", on_delete=models.PROTECT, related_name="invoices")
     subscription = models.ForeignKey(Subscription, on_delete=models.PROTECT, related_name="invoices")
     number = models.CharField(max_length=64, unique=True)
+    provider_order_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    provider_transaction_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     currency = models.CharField(max_length=3, default="USD")
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0"))])
@@ -101,6 +109,9 @@ class Invoice(models.Model):
     class Meta:
         db_table = "billing_invoice"
         indexes = [models.Index(fields=["organization", "status"])]
+
+    def __str__(self):
+        return self.number
 
 
 class PaymentEvent(models.Model):
@@ -131,15 +142,11 @@ class UsageRecord(models.Model):
 
     class Meta:
         db_table = "billing_usage_record"
-        constraints = [
-            models.UniqueConstraint(fields=["organization", "metric", "period_start", "period_end"], name="unique_usage_window")
-        ]
+        constraints = [models.UniqueConstraint(fields=["organization", "metric", "period_start", "period_end"], name="unique_usage_window")]
         indexes = [models.Index(fields=["organization", "metric", "period_end"])]
 
 
 class EntitlementService:
-    """Central server-side feature/limit checks. UI must never be the source of truth."""
-
     ACTIVE_STATUSES = {Subscription.Status.TRIALING, Subscription.Status.ACTIVE, Subscription.Status.PAST_DUE}
 
     @classmethod
@@ -150,6 +157,18 @@ class EntitlementService:
             .order_by("-created_at")
             .first()
         )
+
+    @classmethod
+    def require_usable_subscription(cls, organization):
+        subscription = cls.subscription_for(organization)
+        if subscription is None:
+            raise PermissionDenied("The organization subscription is not active.")
+        now = timezone.now()
+        if subscription.trial_ends_at and subscription.status == Subscription.Status.TRIALING and subscription.trial_ends_at <= now:
+            raise PermissionDenied("The organization trial has expired.")
+        if subscription.current_period_end and subscription.current_period_end <= now:
+            raise PermissionDenied("The organization subscription period has expired.")
+        return subscription
 
     @classmethod
     def has_active_subscription(cls, organization):
