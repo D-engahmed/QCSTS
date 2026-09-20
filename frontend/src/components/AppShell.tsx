@@ -4,13 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell, Building2, ClipboardList, FileCheck2, FlaskConical, LayoutDashboard,
-  LogOut, Menu, Package, ReceiptText, Search, Settings2, ShieldCheck, Users, WalletCards, Send
+  LogOut, Menu, Package, ReceiptText, Search, Settings2, ShieldCheck, Users,
+  WalletCards, Send
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "./AuthProvider";
 
 const workspace = [
   ["Overview", "/app", LayoutDashboard],
+  ["Organization", "/app/organization", Building2],
   ["Products", "/app/products", Package],
   ["Monographs", "/app/monographs", FileCheck2],
   ["Batches", "/app/batches", FlaskConical],
@@ -47,7 +49,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, organization, site, logout, loading } = useAuth();
 
   if (pathname === "/" || pathname === "/login" || pathname === "/register") return <>{children}</>;
-
   if (loading) return <div className="loading-screen"><div className="spinner"/><span>Loading secure workspace…</span></div>;
   if (!user) return <>{children}</>;
 
