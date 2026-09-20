@@ -1,74 +1,77 @@
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import Permission
-from apps.accounts.models import Role
-from constants.permissions import PermissionCodes
+
+from apps.platform.models import Permission, Role
+
 
 class Command(BaseCommand):
-    help = 'Seeds the database with dynamic Roles and Permissions.'
+    help = "Seeds the database with QCSTS organization-scoped roles and permissions."
 
     def handle(self, *args, **options):
-        self.stdout.write("Starting Role seeding...")
+        self.stdout.write("Starting role seeding...")
 
-        permission_objects = {}
-        for perm_code in PermissionCodes.ALL:
-            try:
-                perm = Permission.objects.get(codename=perm_code)
-                permission_objects[perm_code] = perm
-            except Permission.DoesNotExist:
-                self.stdout.write(self.style.WARNING(f"Warning: Permission '{perm_code}' not found. Run migrations first!"))
+        permission_objects = {
+            permission.code: permission
+            for permission in Permission.objects.all()
+        }
 
         roles_config = [
             {
-                "name": "Admin",
-                "description": "Full system access. Can manage users and all settings.",
-                "perms": PermissionCodes.ALL
+                "name": "admin",
+                "description": "Organization administrator.",
+                "perms": sorted(permission_objects),
             },
             {
-                "name": "QA Manager",
-                "description": "Approves monographs, views audit trails, exports reports.",
+                "name": "qa_manager",
+                "description": "Quality assurance management and approval.",
                 "perms": [
-                    PermissionCodes.CAN_APPROVE_MONOGRAPH,
-                    PermissionCodes.CAN_VIEW_AUDIT_TRAIL,
-                    PermissionCodes.CAN_EXPORT_REPORT,
-                    PermissionCodes.CAN_COUNTERSIGN_RESULT,
-                ]
+                    "audit.view",
+                    "result.approve",
+                    "result.review",
+                    "report.export",
+                ],
             },
             {
-                "name": "Supervisor",
-                "description": "Oversees stability batches and countersigns results.",
+                "name": "supervisor",
+                "description": "Supervises stability execution and review.",
                 "perms": [
-                    PermissionCodes.CAN_CREATE_BATCH,
-                    PermissionCodes.CAN_COUNTERSIGN_RESULT,
-                    PermissionCodes.CAN_MANAGE_CHAMBER,
-                ]
+                    "batch.create",
+                    "result.review",
+                    "chamber.manage",
+                ],
             },
             {
-                "name": "Analyst",
-                "description": "Submits routine stability tests and records sample pulls.",
+                "name": "analyst",
+                "description": "Performs routine stability execution and result entry.",
                 "perms": [
-                    PermissionCodes.CAN_SUBMIT_RESULT,
-                    PermissionCodes.CAN_MANAGE_CHAMBER,
-                ]
+                    "result.submit",
+                    "sample.manage",
+                ],
             },
             {
-                "name": "System User",
-                "description": "Automated background tasks, API integrations, and Celery workers.",
+                "name": "system",
+                "description": "Automated background tasks and integrations.",
                 "perms": [
-                    PermissionCodes.CAN_CREATE_BATCH,
-                    PermissionCodes.CAN_SUBMIT_RESULT,
-                ]
-            }
+                    "batch.create",
+                    "result.submit",
+                ],
+            },
         ]
 
         for config in roles_config:
-            role, created = Role.objects.get_or_create(name=config["name"])
+            role, _ = Role.objects.get_or_create(
+                organization=None,
+                name=config["name"],
+                defaults={
+                    "description": config["description"],
+                    "is_system": True,
+                },
+            )
             role.description = config["description"]
-            perm_list = [permission_objects[code] for code in config["perms"] if code in permission_objects]
-            role.permissions.set(perm_list)
-            role.save()
-            if created:
-                self.stdout.write(self.style.SUCCESS(f"Created Role: {role.name}"))
-            else:
-                self.stdout.write(self.style.SUCCESS(f"Updated Role: {role.name}"))
+            role.is_system = True
+            role.save(update_fields=["description", "is_system"])
+            role.permissions.set(
+                [permission_objects[code] for code in config["perms"] if code in permission_objects]
+            )
+            self.stdout.write(self.style.SUCCESS(f"Updated role: {role.name}"))
 
-        self.stdout.write(self.style.SUCCESS("✅ Role seeding complete!"))
+        self.stdout.write(self.style.SUCCESS("Role seeding complete."))
