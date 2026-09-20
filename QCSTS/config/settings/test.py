@@ -1,4 +1,5 @@
-from config.settings.base import *\nimport os
+from config.settings.base import *
+import os
 
 # Use fast in-memory SQLite for tests — no PostgreSQL needed
 DATABASES = {
