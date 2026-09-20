@@ -87,9 +87,10 @@ Security rules:
 
 ### Stability management
 - Stability studies
-- Protocols and protocol versions
+- Controlled protocols and protocol versions
 - Specification/version binding
 - Stability timepoints
+- Batch enrollment
 - Sample pulls
 - Test results and traceability
 - Controlled review and approval
@@ -100,6 +101,7 @@ Security rules:
 - OOT investigations
 - Deviations
 - CAPA
+- Change Control
 - Evidence and controlled records
 - Audit trail coverage
 
@@ -129,6 +131,7 @@ Security rules:
 - Logging and observability
 - Backup and restore procedures
 - CI/CD release gates
+- Immutable commit-SHA container images through GHCR
 
 ## 4. Repository architecture
 
@@ -140,14 +143,14 @@ QCSTS/
 │   ├── services/           # business/application services
 │   ├── docker/             # container orchestration
 │   └── .env.example
-├── QCSTS_frontend/         # React/Vite frontend
+├── QCSTS_frontend/         # active frontend application
 ├── frontend/               # frontend-related repository assets
 ├── docs/                   # engineering and release documentation
 ├── LICENSE.md
 └── README.md
 ~~~
 
-The repository contains both QCSTS_frontend/ and frontend/. **QCSTS_frontend/** is the active Vite/React application wired into the Docker Compose stack. **frontend/** is not part of the current production deployment; treat it as inactive/experimental until it is explicitly promoted and integrated.
+The repository contains both `QCSTS_frontend/` and `frontend/`. **QCSTS_frontend/** is the active application used by the current production-oriented stack. **frontend/** is not part of the current production deployment; treat it as inactive/experimental until it is explicitly promoted and integrated.
 
 ## 5. Quick start — Docker
 
@@ -188,15 +191,27 @@ Never use development secrets in a real deployment.
 
 Use the dedicated production stack rather than the local-development Compose file:
 
-```bash
+~~~bash
 cp QCSTS/.env.production.example QCSTS/.env
 # replace every placeholder, including the real public host and TLS certificate files
 mkdir -p QCSTS/docker/certs
 # place fullchain.pem and privkey.pem in QCSTS/docker/certs/
 docker compose -f QCSTS/docker/docker-compose.production.yml up -d --build
-```
+~~~
 
-The production stack explicitly loads `config.settings.production`, does not publish PostgreSQL or Redis ports, requires non-default database/Redis credentials, and terminates HTTPS in Nginx. Do not use `.env.example` or the development Compose stack for a real deployment.
+The production stack is designed to run the production Django settings, keep PostgreSQL and Redis off the public host interface, require non-default credentials, and terminate HTTPS at Nginx.
+
+The release path includes:
+
+1. Migration execution.
+2. Static-asset collection.
+3. Application health/readiness checks.
+4. Gunicorn startup.
+5. Celery worker and Beat startup.
+6. Next.js production frontend.
+7. Nginx reverse proxy.
+8. PostgreSQL and authenticated Redis.
+9. Production image builds.
 
 Before release, run migrations and the full security/integration test gates against a production-like PostgreSQL environment. A clean container start is not evidence that the migration graph is synchronized.
 
@@ -205,10 +220,13 @@ Before release, run migrations and the full security/integration test gates agai
 ~~~bash
 cd QCSTS
 python -m venv venv
+
 # Windows
 venv\\Scripts\\activate
+
 # macOS/Linux
 # source venv/bin/activate
+
 pip install -r requirements/test.txt
 cp .env.example .env
 python manage.py migrate
@@ -216,7 +234,7 @@ python manage.py createsuperuser
 python manage.py runserver
 ~~~
 
-Configure DATABASE_URL and REDIS_URL for the local PostgreSQL and Redis services.
+Configure `DATABASE_URL` and `REDIS_URL` for the local PostgreSQL and Redis services.
 
 ## 8. Frontend development
 
@@ -226,6 +244,8 @@ npm install
 npm run dev
 npm run build
 ~~~
+
+The current stability UI is API-backed rather than relying on hardcoded demonstration study data.
 
 ## 9. Testing
 
@@ -243,30 +263,87 @@ npm run build
 
 Security-sensitive changes require negative tests, not only happy-path tests. At minimum, cover cross-organization reads/updates/deletes, organization spoofing, site boundary violations, missing permissions, privilege escalation, inactive memberships, unauthorized file/report access, and duplicate or invalid payment events.
 
-## 10. Production release gates
+## 10. CI/CD and release gates
 
-These roadmap gates are sequential. A merged PR is not, by itself, evidence that the system is production-ready.
+The production CI/CD gate has been hardened around **Python 3.12** and **Node 20**.
 
-| Roadmap PR | GitHub PR | Gate |
-|---|---:|---|
-| PR13 | #13 | Tenant authorization hardening |
-| PR14 | #22 | Endpoint-wide RBAC authorization guard |
-| PR15 | #24 | Cross-tenant and privilege-escalation security |
-| PR16 | #25 | Stability Study / Protocol / Version / Specification |
-| PR17 | #26 | Timepoint / SamplePull / Result lifecycle |
-| PR18 | #27 | QA review / approval / locking / e-signatures |
-| PR19 | #28 | OOS / OOT / Deviations / CAPA |
-| PR20 | #29 | Audit integrity / controlled files |
-| PR21 | #30 | Reports / exports / authorization |
-| PR22 | #31 | Plans / Entitlements / Usage / Subscriptions / Invoices |
-| PR23 | #32 | Paymob / verified idempotent webhooks |
-| PR24 | #33 | Production infrastructure / observability |
-| PR25 | #34 | Backup / restore / disaster recovery / RPO-RTO |
-| PR26 | #35 | CI/CD / migration / deployment safety |
-| PR27 | #36 | Full E2E / security regression gates |
-| PR28 | #37 | Validation-ready pilot / production release package |
+Current CI controls include:
 
-## 11. Production readiness model
+- Dependency installation and pip caching.
+- `pip check`.
+- Django deployment checks.
+- Migration drift detection.
+- Real PostgreSQL migrations in CI.
+- Backend tests against PostgreSQL rather than silently relying on SQLite.
+- Coverage artifact collection with a **90% coverage floor**.
+- Frontend type checking.
+- Frontend production build.
+- Backend and frontend Docker builds.
+- Least-privilege GitHub Actions permissions.
+- Concurrency cancellation for superseded runs.
+- Successful `main` builds publish immutable commit-SHA images to GHCR.
+
+### Production release gates
+
+These gates are evidence-based. A merged PR or existing model is not, by itself, evidence that a production requirement is complete.
+
+| Gate | Scope | Status |
+|---|---|---|
+| Tenant isolation | Organization/site scoping and ownership boundaries | Implemented / hardened |
+| Endpoint authorization | Explicit backend RBAC and object authorization | Implemented / hardened |
+| Security regression | Cross-tenant and privilege-escalation protections | Implemented / hardened |
+| Stability core | Study, protocol, version, specification | Implemented |
+| Stability execution | Enrollment, timepoints, sample lifecycle | Implemented |
+| Controlled results | QA approval, controlled records, result locking | Implemented |
+| Quality investigations | OOS, OOT, Deviation, CAPA, Change Control | Implemented |
+| Audit integrity | Django + PostgreSQL audit immutability | Implemented |
+| Reporting | Reports, exports, authorization-aware access | Implemented |
+| Billing | Plans, entitlements, usage, subscriptions, invoices | Remaining validation/enforcement |
+| Payments | Paymob + verified idempotent webhooks | Remaining validation |
+| Production infrastructure | Docker, Nginx, PostgreSQL, Redis, workers, frontend | Implemented |
+| CI/CD | Tests, migrations, builds, release gates, GHCR images | Implemented / hardened |
+| Backup / DR | Restore verification and RPO/RTO evidence | Remaining |
+| E2E release evidence | Full workflow/security regression evidence | Remaining |
+| Validation / UAT | Customer-specific validation and pilot evidence | Remaining |
+
+## 11. Wave 3 — production completion and CI/CD hardening
+
+**Wave 3 was completed on 20 September 2026.**
+
+The wave focused on closing the gap between feature implementation and actual release engineering.
+
+### Backend and data integrity
+- Tenant-owned foreign-key validation remains structural.
+- Chamber locations are database-unique within a tenant.
+- Sample pulls lock the batch row and re-check inventory transactionally.
+- Monograph approval cannot be performed through ordinary CRUD input.
+- Monograph approval requires signature re-authentication and a reason.
+- Stability APIs expose controlled protocols, versions, specifications, studies, enrollments, timepoints, and samples.
+- Stability lifecycle transitions are server-controlled and audit/signature backed.
+- QA approval creates and locks a `ControlledRecord` for results.
+- Uncontrolled correction of locked results is rejected.
+- OOS/OOT/Deviation/CAPA/Change Control use controlled lifecycle transitions.
+- `AuditLog` immutability is enforced in Django and at PostgreSQL trigger level.
+
+### Frontend integration
+- Stability Studies list is API-backed.
+- Study creation submits through the tenant-scoped stability API.
+- Study detail loads real study, timepoint, sample, and enrolled-batch data.
+- Frontend endpoint definitions cover stability master data.
+- Study navigation uses stable study UUIDs.
+- Duplicate stability endpoint aliases were removed.
+
+### Production engineering
+- Production Docker runtime was added for the frontend.
+- Production Compose includes PostgreSQL, authenticated Redis, migration/collectstatic release gating, Gunicorn, Celery, Celery Beat, Next.js, and Nginx.
+- Development Compose frontend mounting was corrected.
+- Production reverse proxy configuration was added.
+- CI uses PostgreSQL for backend integration testing.
+- CI validates migration synchronization instead of assuming migrations are correct.
+- Production images are published immutably by commit SHA.
+- GitHub Actions token permissions were minimized.
+
+## 12. Production readiness model
 
 ~~~text
 Code implemented
@@ -292,9 +369,11 @@ Controlled pilot
 Production release
 ~~~
 
-QCSTS should not be described as a certified regulated system unless the required evidence and external/customer-specific activities actually exist.
+**Current state:** QCSTS is in **advanced pre-production / pilot preparation**, not a certified production regulated system.
 
-## 12. Critical data integrity workflow
+The remaining release-critical evidence includes billing enforcement, payment verification, backup/restore and disaster-recovery evidence, broader end-to-end/security regression coverage, external deployment/TLS infrastructure, and customer-specific validation/UAT.
+
+## 13. Critical data integrity workflow
 
 ~~~text
 Draft → Review → Approve → Sign → Lock
@@ -304,7 +383,7 @@ After controlled locking/signature, ordinary mutation must not silently change t
 
 Electronic signatures must identify the signer and signing event. Authentication credentials alone are not a complete electronic-signature and audit workflow.
 
-## 13. Auditability
+## 14. Auditability
 
 Critical events should provide enough evidence to answer:
 
@@ -320,7 +399,7 @@ WHY / REASON WHEN REQUIRED
 
 Audit records are security-sensitive data and must not be editable or deletable by ordinary application users.
 
-## 14. Regulatory positioning
+## 15. Regulatory positioning
 
 QCSTS is designed with regulated pharmaceutical environments in mind, including controlled records, auditability, access control, electronic signatures, data integrity, and validation evidence.
 
@@ -336,7 +415,7 @@ Preferred positioning:
 
 > **Designed for GxP-regulated environments with a validation-ready architecture.**
 
-## 15. Contributor security rules
+## 16. Contributor security rules
 
 Before opening a production PR:
 
@@ -351,20 +430,30 @@ Before opening a production PR:
 9. Never commit secrets.
 10. Fix security failures in implementation rather than weakening tests.
 
-## 16. Documentation
+## 17. Documentation
 
-- Backend architecture and API documentation: QCSTS/README.md
-- API documentation: QCSTS/API_DOCUMENTATION.md
-- Engineering documentation: docs/
-- Production release gates: docs/release-gates/
+- Backend architecture and API documentation: `QCSTS/README.md`
+- API documentation: `QCSTS/API_DOCUMENTATION.md`
+- Engineering documentation: `docs/`
+- Production release gates: `docs/release-gates/`
 
-## 17. Project status
+## 18. Project status
 
-QCSTS has moved from feature development toward production hardening and controlled release engineering.
+QCSTS has moved beyond basic feature development into **production hardening and controlled release engineering**.
 
-The current objective is to prove that tenant boundaries hold, permissions are enforced server-side, critical quality records are controlled, workflows are traceable, audit evidence is reliable, billing/payment state is authoritative, infrastructure is recoverable, releases are test-gated, and regulatory positioning matches the evidence actually available.
+The current objective is to prove—not merely assume—that:
 
-Until those conditions are demonstrated with implementation and test evidence, QCSTS should be treated as **pre-production / pilot-stage software**, not as a certified regulated system.
+- tenant boundaries hold;
+- permissions are enforced server-side;
+- critical quality records are controlled;
+- stability workflows are traceable;
+- audit evidence is immutable;
+- billing/payment state is authoritative;
+- infrastructure is recoverable;
+- CI/CD prevents unsafe releases; and
+- regulatory positioning matches the evidence actually available.
+
+Wave 3 materially advances the production foundation, but the remaining evidence listed above is still required before describing QCSTS as a production-ready regulated system.
 
 ## License
 
