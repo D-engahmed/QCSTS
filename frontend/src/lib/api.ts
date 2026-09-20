@@ -71,12 +71,22 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   if (organization) headers.set("X-Organization-ID", organization);
   if (site) headers.set("X-Site-ID", site);
 
-  let response = await fetch(API_URL + path, {
-    ...init,
-    headers,
-    credentials: "include",
-    cache: "no-store",
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(API_URL + path, {
+      ...init,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+    });
+  } catch (error) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "unknown-origin";
+    const detail = error instanceof Error ? error.message : "Network request failed";
+    throw new Error(
+      `Unable to reach QCSTS API at ${API_URL}. Browser origin: ${origin}. ${detail} Check that Django is running and CORS_ALLOWED_ORIGINS includes the frontend origin.`,
+    );
+  }
 
   if (response.status === 401 && !skipRefresh && typeof window !== "undefined") {
     const renewed = await refreshAccess();

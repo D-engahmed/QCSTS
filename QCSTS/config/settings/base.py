@@ -323,7 +323,14 @@ CELERY_TIMEZONE = env(
 
 CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS",
-    default=[],
+    default=(
+        [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+        if DEBUG
+        else []
+    ),
 )
 
 CORS_ALLOW_CREDENTIALS = True
