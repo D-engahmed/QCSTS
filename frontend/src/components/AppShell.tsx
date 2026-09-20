@@ -22,6 +22,7 @@ const workspace = [
   ["Results", "/app/results", FileCheck2],
   ["Quality", "/app/quality", ShieldCheck],
   ["Audit", "/app/audit", ReceiptText],
+  ["Compliance", "/app/compliance", ShieldCheck],
 ];
 
 const admin = [
