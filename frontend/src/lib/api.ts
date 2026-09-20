@@ -136,6 +136,8 @@ export const endpoints = {
   specifications: "/stability/specifications/",
   products: "/products/",
   batches: "/batches/",
+  timePoints: "/stability/timepoints/",
+  studyBatches: "/stability/study-batches/",
   testPoints: "/test-points/",
   samples: "/stability/samples/",
   timepoints: "/stability/timepoints/",
