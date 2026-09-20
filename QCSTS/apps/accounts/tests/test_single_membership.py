@@ -21,4 +21,4 @@ def test_registration_sets_password_changed_at():
     )
     assert response.status_code == 201
     user = CustomUser.objects.get(email="password-owner@example.test")
-    assert user.password_changed_at is None
+    assert user.password_changed_at is not None
