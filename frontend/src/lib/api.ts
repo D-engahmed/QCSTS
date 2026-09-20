@@ -14,7 +14,7 @@ const configuredApiUrl = (
 
 const API_URL =
   typeof window !== "undefined" &&
-  /^https?:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d+)?\\/api\\/v1$/i.test(configuredApiUrl)
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/api\/v1$/i.test(configuredApiUrl)
     ? "/api/backend"
     : configuredApiUrl;
 
