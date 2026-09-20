@@ -2,7 +2,7 @@ from core.views import TenantScopedAPIView
 from rest_framework import status
 from django.utils import timezone
 
-from apps.products.models import Monograph, MonographTest, Product
+from apps.products.models import Monograph, MonographTest, Product\nfrom apps.compliance.models import ElectronicSignature\nfrom services.signature_service import SignatureService
 from apps.products.serializers import (
     MonographSerializer,
     MonographCreateSerializer,
@@ -109,7 +109,7 @@ class MonographApproveView(TenantScopedAPIView):
             object_id=monograph.id,
             object_repr=str(monograph),
             old_value=old_value,
-            new_value={"status": "approved"},
+            new_value={"status": "approved", "signature_id": str(signature.id)},
             ip_address=request.META.get("REMOTE_ADDR"),
         )
         return success_response(
@@ -208,7 +208,7 @@ class ProductDetailView(TenantScopedAPIView):
         if not product:
             return error_response({"detail": "Product not found."}, status.HTTP_404_NOT_FOUND)
         old_value = ProductSerializer(product).data
-        serializer = ProductSerializer(product, data=request.data, partial=True)
+        serializer = ProductSerializer(product, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
