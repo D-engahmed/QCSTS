@@ -6,6 +6,7 @@ export type User = {
   full_name: string;
   role?: string | null;
   organization_role?: string | null;
+  organization_site?: { id: string; name: string } | null;
   is_active: boolean;
   created_at: string;
 };
