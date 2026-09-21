@@ -46,9 +46,6 @@ def test_deviation_can_link_to_oos(db, org):
     tp = __import__("apps.stability.models", fromlist=["StudyTimepoint"]).StudyTimepoint.objects.create(
         organization=org, study=study, code="T0", nominal_days=0, target_date="2026-01-01"
     )
-    sb = __import__("apps.stability.models", fromlist=["StudyBatch"]).StudyBatch.objects.create(
-        organization=org, study=study, batch=batch
-    )
     mt = __import__("apps.products.models", fromlist=["Monograph"]).Monograph.objects.create(
         organization=org, name="USP Example", version="1", effective_date="2026-01-01"
     )
