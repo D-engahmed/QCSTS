@@ -298,11 +298,11 @@ These gates are evidence-based. A merged PR or existing model is not, by itself,
 | Quality investigations | OOS, OOT, Deviation, CAPA, Change Control | Implemented |
 | Audit integrity | Django + PostgreSQL audit immutability | Implemented |
 | Reporting | Reports, exports, authorization-aware access | Implemented |
-| Billing | Plans, entitlements, usage, subscriptions, invoices | Remaining validation/enforcement |
-| Payments | Paymob + verified idempotent webhooks | Remaining validation |
+| Billing | Plans, entitlements, usage, subscriptions, invoices | Implemented / server-enforced |
+| Payments | Paymob + HMAC-verified idempotent callbacks | Implemented / merchant verification required |
 | Production infrastructure | Docker, Nginx, PostgreSQL, Redis, workers, frontend | Implemented |
 | CI/CD | Tests, migrations, builds, release gates, GHCR images | Implemented / hardened |
-| Backup / DR | Restore verification and RPO/RTO evidence | Remaining |
+| Backup / DR | Backup/restore tooling and recovery runbook | Implemented / restore evidence required |
 | E2E release evidence | Full workflow/security regression evidence | Remaining |
 | Validation / UAT | Customer-specific validation and pilot evidence | Remaining |
 
@@ -371,7 +371,7 @@ Production release
 
 **Current state:** QCSTS is in **advanced pre-production / pilot preparation**, not a certified production regulated system.
 
-The remaining release-critical evidence includes billing enforcement, payment verification, backup/restore and disaster-recovery evidence, broader end-to-end/security regression coverage, external deployment/TLS infrastructure, and customer-specific validation/UAT.
+The remaining release-critical evidence is now concentrated on executing the controls: full browser E2E/security regression, an actual isolated backup restore with measured RPO/RTO, external deployment/TLS verification, live Paymob merchant verification, and customer-specific validation/UAT.
 
 ## 13. Critical data integrity workflow
 

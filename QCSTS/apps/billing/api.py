@@ -37,12 +37,16 @@ class PlanViewSet(TenantExemptViewSet):
 
 
 class SubscriptionViewSet(TenantScopedViewSet):
+    # Subscription visibility must remain available when an organization is
+    # past_due/suspended so the customer can recover service.
+    billing_required = False
     permission_classes = [HasTenantContext]
     serializer_class = SubscriptionSerializer
     queryset = Subscription.objects.select_related("plan")
 
 
 class UsageRecordViewSet(TenantScopedViewSet):
+    billing_required = False
     permission_classes = [HasTenantContext]
     serializer_class = UsageRecordSerializer
     queryset = UsageRecord.objects.all()
