@@ -122,6 +122,10 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
 export const endpoints = {
   register: "/auth/register/",
+  monographs: "/products/monographs/",
+  monographTests: (id: string) => `/products/monographs/${id}/tests/`,
+  monographApprove: (id: string) => `/products/monographs/${id}/approve/`,
+  signatureVerify: "/results/signature/verify/",
   login: "/auth/login/",
   logout: "/auth/logout/",
   me: "/auth/me/",
