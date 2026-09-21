@@ -45,7 +45,7 @@ jobs:
       run:
         working-directory: QCSTS
     env:
-      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_SETTINGS_MODULE: config.settings.test
       DATABASE_URL: postgres://qcsts:qcsts@127.0.0.1:5432/qcsts_test
       REDIS_URL: redis://127.0.0.1:6379/0
       DJANGO_SECRET_KEY: ci-only-secret
