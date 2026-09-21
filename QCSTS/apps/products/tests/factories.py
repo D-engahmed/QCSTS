@@ -56,6 +56,11 @@ class MonographTestFactory(DjangoModelFactory):
 
 
 class MonographWithTestsFactory(ApprovedMonographFactory):
+    @classmethod
+    def _after_postgeneration(cls, instance, create, results=None):
+        if create and results:
+            instance.save()
+
     @factory.post_generation
     def with_tests(obj, create, extracted, **kwargs):
         if not create:
