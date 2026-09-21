@@ -30,6 +30,7 @@ class DashboardView(TenantScopedAPIView):
             "change_controls_open": ChangeControl.objects.filter(organization=org, status__in=["open", "investigation", "pending_approval"]).count(),
         }
         return success_response({
+            "failed_batches": batches.filter(status="failed").count(),
             "summary": {
                 "total_products": products.count(),
                 "active_batches": batches.filter(status="active").count(),
