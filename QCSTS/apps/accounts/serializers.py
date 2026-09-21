@@ -70,10 +70,10 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            "id", "email", "full_name", "role", "organization_role", "organization_site",
+            "id", "email", "full_name", "role", "organization_role", "organization_site", "email_verified_at",
             "is_active", "created_at",
         ]
-        read_only_fields = ["id", "email", "role", "organization_role", "created_at"]
+        read_only_fields = ["id", "email", "role", "organization_role", "email_verified_at", "created_at"]
 
     def get_organization_role(self, obj):
         organization = self.context.get("organization")
