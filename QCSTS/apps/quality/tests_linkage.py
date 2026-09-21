@@ -56,7 +56,7 @@ def test_deviation_can_link_to_oos(db, org):
         organization=org, monograph=mt, name="Assay", method="HPLC", specification="95-105", unit="%", sequence=1
     )
     result = __import__("apps.results.models", fromlist=["TestResult"]).TestResult.objects.create(
-        organization=org, test_point=tp, monograph_test=mtest, value="110", unit="%", analyst=__import__("apps.accounts.models", fromlist=["CustomUser"]).CustomUser.objects.create_user(
+        organization=org, test_point=tp, monograph_test=mtest, value="110", unit="%", specification_snapshot="95-105", analyst=__import__("apps.accounts.models", fromlist=["CustomUser"]).CustomUser.objects.create_user(
             email="quality@acme.test", password="password-123", full_name="Quality Analyst", role="analyst"
         ),
     )
