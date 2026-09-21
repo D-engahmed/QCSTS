@@ -130,6 +130,7 @@ export const endpoints = {
   logout: "/auth/logout/",
   me: "/auth/me/",
   users: "/auth/users/",
+  user: (id: string) => `/auth/users/${id}/`,
   changePassword: "/auth/change-password/",
   organizations: "/platform/organizations/",
   sites: "/platform/sites/",
