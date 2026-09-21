@@ -1,5 +1,5 @@
 from django.urls import path
-from apps.accounts import recovery, views
+from apps.accounts import mfa, recovery, views
 
 urlpatterns = [
     path("register/", views.RegisterView.as_view(), name="register"),
@@ -12,4 +12,8 @@ urlpatterns = [
     path("password-reset/", recovery.PasswordResetRequestView.as_view(), name="password-reset"),
     path("password-reset/confirm/", recovery.PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
     path("verify-email/", recovery.VerifyEmailView.as_view(), name="verify-email"),
+    path("mfa/status/", mfa.MFAStatusView.as_view(), name="mfa-status"),
+    path("mfa/setup/", mfa.MFASetupView.as_view(), name="mfa-setup"),
+    path("mfa/confirm/", mfa.MFAConfirmView.as_view(), name="mfa-confirm"),
+    path("mfa/disable/", mfa.MFADisableView.as_view(), name="mfa-disable"),
 ]
