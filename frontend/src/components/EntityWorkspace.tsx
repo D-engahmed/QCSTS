@@ -68,6 +68,11 @@ export default function EntityWorkspace({
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [transitionRow, setTransitionRow] = useState<any | null>(null);
+  const [transitionStatus, setTransitionStatus] = useState("");
+  const [transitionComments, setTransitionComments] = useState("");
+  const [transitionPassword, setTransitionPassword] = useState("");
+  const [transitionBusy, setTransitionBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -126,6 +131,34 @@ export default function EntityWorkspace({
       Object.values(row).some((value) => String(value ?? "").toLowerCase().includes(needle)),
     );
   }, [rows, query]);
+
+  const submitTransition = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!transitionRow || !transitionStatus || !transitionComments.trim() || !transitionPassword) return;
+    setTransitionBusy(true);
+    setError("");
+    try {
+      const signature = await api<ApiEnvelope<{ signature_token: string }>>("/results/signature/verify/", {
+        method: "POST",
+        body: JSON.stringify({ password: transitionPassword }),
+      });
+      const token = unwrap<{ signature_token: string }>(signature).signature_token;
+      await api(`${endpoint.replace(/\\/$/, "")}/${transitionRow.id}/transition/`, {
+        method: "POST",
+        headers: { "X-Signature-Token": token },
+        body: JSON.stringify({ status: transitionStatus, comments: transitionComments.trim() }),
+      });
+      setTransitionRow(null);
+      setTransitionStatus("");
+      setTransitionComments("");
+      setTransitionPassword("");
+      await load();
+    } catch (value) {
+      setError(value instanceof Error ? value.message : "Unable to record the controlled transition.");
+    } finally {
+      setTransitionBusy(false);
+    }
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -250,7 +283,7 @@ export default function EntityWorkspace({
         </div>
         <DataTable
           rows={filteredRows}
-          columns={columns}
+          columns={tableColumns}
           emptyTitle={loading ? "Loading…" : emptyTitle}
           emptyText={loading ? "":"No authorized records were returned for this workspace."}
         />
