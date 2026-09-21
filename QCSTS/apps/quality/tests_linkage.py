@@ -18,20 +18,6 @@ def test_deviation_can_link_to_oos(db, org):
         strength="500 mg",
         dosage_form="tablet",
     )
-    batch = __import__("apps.batches.models", fromlist=["Batch"]).Batch.objects.create(
-        organization=org,
-        product=product,
-        batch_number="B-001",
-        mfg_date="2026-01-01",
-        expiry_date="2027-01-01",
-        incubation_date="2026-01-01",
-        study_type="long_term",
-        shelf="1",
-        rack="1",
-        position="1",
-        qty_placed=10,
-        qty_remaining=10,
-    )
     protocol = __import__("apps.stability.models", fromlist=["Protocol"]).Protocol.objects.create(
         organization=org, code="P-1", name="Protocol", product=product, study_type="long_term"
     )
