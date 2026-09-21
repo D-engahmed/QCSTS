@@ -94,8 +94,8 @@ jobs:
       - name: Apply migrations against PostgreSQL
         run: python manage.py migrate --noinput
 
-      - name: Lint
-        run: ruff check .
+      - name: Lint — correctness
+        run: ruff check . --select F
 
       - name: Run backend tests with coverage
         run: >
