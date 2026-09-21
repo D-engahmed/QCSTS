@@ -1,0 +1,4 @@
+"use client";
+import EntityWorkspace from "@/components/EntityWorkspace";
+import { endpoints } from "@/lib/api";
+export default function StudyBatches(){return <EntityWorkspace eyebrow="STABILITY" title="Study batch enrollment" description="Enroll manufactured batches into controlled stability studies without bypassing product or tenant integrity rules." endpoint={endpoints.studyBatches} fields={[{key:"study",label:"Study",type:"select",required:true,optionsEndpoint:endpoints.studies},{key:"batch",label:"Batch",type:"select",required:true,optionsEndpoint:endpoints.batches},{key:"enrolled_at",label:"Enrollment timestamp",type:"date"},{key:"planned_quantity",label:"Planned quantity",type:"number"},{key:"notes",label:"Notes",type:"textarea"}]} columns={[{key:"study",label:"Study"},{key:"batch",label:"Batch"},{key:"enrolled_at",label:"Enrolled"},{key:"planned_quantity",label:"Planned qty"}]}/>}
