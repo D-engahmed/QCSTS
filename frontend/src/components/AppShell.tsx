@@ -79,7 +79,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (loading) return <div className="loading-screen"><div className="spinner" /><span>Loading secure workspace…</span></div>;
   if (!user) return <>{children}</>;
 
-  const role = String(membership?.role || user.organization_role || user.role || "viewer").toLowerCase();
+  const role = String(membership?.role || user.organization_role || "viewer").toLowerCase();
   const canManageUsers = ["admin", "qa_manager"].includes(role);
 
   return (
