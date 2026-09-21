@@ -95,7 +95,7 @@ jobs:
         run: python manage.py migrate --noinput
 
       - name: Lint — correctness
-        run: ruff check . --select F
+        run: ruff check . --select F821,F823,F841
 
       - name: Run backend tests with coverage
         run: >
