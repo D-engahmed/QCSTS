@@ -8,7 +8,6 @@ from apps.platform.models import Organization
 
 @pytest.mark.django_db
 def test_notification_must_share_tenant_with_user():
-    org_a = Organization.objects.create(name="A Pharma", slug="a-pharma-notif", country="EG")
     org_b = Organization.objects.create(name="B Pharma", slug="b-pharma-notif", country="EG")
     user = CustomUser.objects.create_user(
         email="notif-user@a.test",
