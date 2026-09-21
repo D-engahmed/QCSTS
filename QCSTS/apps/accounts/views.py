@@ -1,4 +1,7 @@
-from django.db import transaction\nfrom django.utils import timezone
+from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
+from decimal import Decimal
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
@@ -14,6 +17,7 @@ from apps.accounts.serializers import (
     UserSerializer,
 )
 from apps.platform.models import Membership, Organization, Permission, Role, Site
+from apps.billing.models import Plan, Subscription
 from core.permissions import IsAdmin
 from core.responses import error_response, success_response
 from core.views import PublicAPIView, TenantExemptAPIView, TenantScopedAPIView
@@ -82,15 +86,31 @@ class RegisterView(PublicAPIView):
             currency=data.get("currency", "USD"),
         )
 
-        site = None
-        if data.get("site_name"):
-            site = Site.objects.create(
-                organization=organization,
-                name=data["site_name"],
-                address=data.get("site_address", ""),
-                country=data["country"],
-                timezone=data.get("timezone", "UTC"),
-            )
+        site = Site.objects.create(
+            organization=organization,
+            name=data.get("site_name") or "Primary Site",
+            address=data.get("site_address", ""),
+            country=data["country"],
+            timezone=data.get("timezone", "UTC"),
+        )
+
+        trial_plan, _ = Plan.objects.get_or_create(
+            code=Plan.Code.ESSENTIAL,
+            defaults={
+                "name": "Essential",
+                "description": "Single-site stability management for small pharmaceutical operations.",
+                "monthly_price": Decimal("399.00"),
+                "annual_price": Decimal("3990.00"),
+                "currency": data.get("currency", "USD"),
+                "max_users": 15,
+                "max_sites": 1,
+                "max_studies": 100,
+                "max_storage_mb": 10240,
+                "api_access": False,
+            },
+        )
+        now = timezone.now()
+        trial_ends_at = now + timedelta(days=14)
 
         user = CustomUser.objects.create_user(
             email=data["email"],
@@ -128,8 +148,18 @@ class RegisterView(PublicAPIView):
             role=role,
             default_site=site,
         )
-        if site:
-            membership.sites.add(site)
+        membership.sites.add(site)
+
+        Subscription.objects.create(
+            organization=organization,
+            plan=trial_plan,
+            status=Subscription.Status.TRIALING,
+            interval=Subscription.Interval.MONTH,
+            provider="manual_trial",
+            trial_ends_at=trial_ends_at,
+            current_period_start=now,
+            current_period_end=trial_ends_at,
+        )
 
         AuditService.log(
             performed_by=user,
@@ -259,7 +289,18 @@ class UserListCreateView(TenantScopedAPIView):
         role, _ = Role.objects.get_or_create(
             organization=request.organization, name=role_name
         )
-        Membership.objects.create(user=user, organization=request.organization, role=role)
+        default_site = Site.objects.filter(
+            organization=request.organization,
+            status=Site.Status.ACTIVE,
+        ).order_by("created_at").first()
+        membership = Membership.objects.create(
+            user=user,
+            organization=request.organization,
+            role=role,
+            default_site=default_site,
+        )
+        if default_site:
+            membership.sites.add(default_site)
 
         AuditService.log(
             performed_by=request.user, action="CREATE", model_name="CustomUser",
