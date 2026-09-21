@@ -65,11 +65,12 @@ class UserSerializer(serializers.ModelSerializer):
     """Read view of a user. Authority comes from Membership.role."""
 
     organization_role = serializers.SerializerMethodField()
+    organization_site = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
         fields = [
-            "id", "email", "full_name", "role", "organization_role",
+            "id", "email", "full_name", "role", "organization_role", "organization_site",
             "is_active", "created_at",
         ]
         read_only_fields = ["id", "email", "role", "organization_role", "created_at"]
@@ -78,10 +79,17 @@ class UserSerializer(serializers.ModelSerializer):
         organization = self.context.get("organization")
         if organization is None:
             return None
-        membership = obj.memberships.filter(
-            organization=organization
-        ).select_related("role").first()
+        membership = obj.memberships.filter(organization=organization).select_related("role").first()
         return membership.role.name if membership else None
+
+    def get_organization_site(self, obj):
+        organization = self.context.get("organization")
+        if organization is None:
+            return None
+        membership = obj.memberships.filter(organization=organization).select_related("default_site").first()
+        if not membership or not membership.default_site:
+            return None
+        return {"id": str(membership.default_site.id), "name": membership.default_site.name}
 
 
 class CreateUserSerializer(serializers.ModelSerializer):
