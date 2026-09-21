@@ -24,6 +24,29 @@ from core.views import PublicAPIView, TenantExemptAPIView, TenantScopedAPIView
 from services.audit_service import AuditService
 
 
+def ensure_role_permissions(role):
+    """Provision explicit site permissions required by each built-in role."""
+    permissions_by_role = {
+        "viewer": {"site.view"},
+        "analyst": {"site.view"},
+        "supervisor": {"site.view"},
+        "qa_manager": {"site.view"},
+        "admin": {"site.view", "site.create", "site.update", "site.delete"},
+    }
+    definitions = {
+        "site.view": ("View sites", "View organization sites."),
+        "site.create": ("Create sites", "Create organization sites."),
+        "site.update": ("Update sites", "Update organization sites."),
+        "site.delete": ("Delete sites", "Delete organization sites."),
+    }
+    for code in permissions_by_role.get(role.name, set()):
+        name, description = definitions[code]
+        permission, _ = Permission.objects.get_or_create(
+            code=code, defaults={"name": name, "description": description}
+        )
+        role.permissions.add(permission)
+
+
 class LoginView(PublicAPIView):
     """Authenticates a user before any tenant context exists."""
 
@@ -174,17 +197,7 @@ class RegisterView(PublicAPIView):
         # immediately. These are the permissions currently used by platform
         # management; adding more permissions later remains an explicit RBAC
         # change rather than an implicit global superuser grant.
-        admin_permission_codes = {
-            "site.view": ("View sites", "View organization sites."),
-            "site.create": ("Create sites", "Create organization sites."),
-            "site.update": ("Update sites", "Update organization sites."),
-            "site.delete": ("Delete sites", "Delete organization sites."),
-        }
-        for code, (name, description) in admin_permission_codes.items():
-            permission, _ = Permission.objects.get_or_create(
-                code=code, defaults={"name": name, "description": description}
-            )
-            role.permissions.add(permission)
+        ensure_role_permissions(role)
 
         membership = Membership.objects.create(
             user=user,
@@ -333,6 +346,7 @@ class UserListCreateView(TenantScopedAPIView):
         role, _ = Role.objects.get_or_create(
             organization=request.organization, name=role_name
         )
+        ensure_role_permissions(role)
         default_site = Site.objects.filter(
             organization=request.organization,
             status=Site.Status.ACTIVE,
