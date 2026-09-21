@@ -86,6 +86,8 @@ export default function EntityWorkspace({
     void load();
   }, [endpoint]);
 
+  const lookupSpec = fields.filter((field) => field.optionsEndpoint).map((field) => `${field.key}:${field.optionsEndpoint}:${field.optionLabel ?? ""}`).join("|");
+
   useEffect(() => {
     const lookupFields = fields.filter((field) => field.optionsEndpoint);
     if (!lookupFields.length) return;
@@ -115,7 +117,7 @@ export default function EntityWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [fields]);
+  }, [lookupSpec]);
 
   const filteredRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
