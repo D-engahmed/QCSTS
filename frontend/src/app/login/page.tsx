@@ -74,6 +74,10 @@ export default function Login() {
             />
           </label>
 
+          <div className="auth-alt" style={{ justifyContent: "flex-end", marginTop: -6 }}>
+            <Link href="/forgot-password">Forgot password?</Link>
+          </div>
+
           <button className="btn primary full" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
             {!busy && <ArrowRight size={15} />}

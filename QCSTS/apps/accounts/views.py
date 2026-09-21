@@ -18,6 +18,7 @@ from apps.accounts.serializers import (
 )
 from apps.platform.models import Membership, Organization, Permission, Role, Site
 from apps.billing.models import Plan, Subscription
+from apps.accounts.recovery import issue_email_verification
 from core.permissions import IsAdmin
 from core.responses import error_response, success_response
 from core.views import PublicAPIView, TenantExemptAPIView, TenantScopedAPIView
@@ -233,6 +234,7 @@ class RegisterView(PublicAPIView):
             organization=organization,
         )
 
+        issue_email_verification(user)
         refresh = RefreshToken.for_user(user)
         return success_response(
             data={

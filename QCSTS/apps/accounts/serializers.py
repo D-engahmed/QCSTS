@@ -70,10 +70,10 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            "id", "email", "full_name", "role", "organization_role", "organization_site",
+            "id", "email", "full_name", "role", "organization_role", "organization_site", "email_verified_at",
             "is_active", "created_at",
         ]
-        read_only_fields = ["id", "email", "role", "organization_role", "created_at"]
+        read_only_fields = ["id", "email", "role", "organization_role", "email_verified_at", "created_at"]
 
     def get_organization_role(self, obj):
         organization = self.context.get("organization")
@@ -106,7 +106,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
         value = (value or "").strip().lower()
         if value not in allowed_roles:
             raise serializers.ValidationError(
-                f"Unknown role. Choose one of: {', '.join(sorted(ROLE_RANK))}."
+                f"Unknown role. Choose one of: {', '.join(sorted(allowed_roles))}."
             )
         return value
 
@@ -167,3 +167,17 @@ class OrganizationRegistrationSerializer(serializers.Serializer):
                 )
             attrs["slug"] = slug
         return attrs
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True, min_length=12, trim_whitespace=False)
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    token = serializers.CharField()

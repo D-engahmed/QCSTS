@@ -10,7 +10,13 @@ type Study={id:string;code:string;name:string;status:string;study_type:string;st
 type Row={id:string;[key:string]:any};
 
 function unwrap<T>(x:any):T{return x?.data??x;}
-function rows(x:any):any[]{const d=unwrap(x);return Array.isArray(d)?d:(d?.results??d?.items??[]);}
+function rows(x:any): any[] {
+  const d: any = unwrap<any>(x);
+  if (Array.isArray(d)) return d;
+  if (d && Array.isArray(d.results)) return d.results;
+  if (d && Array.isArray(d.items)) return d.items;
+  return [];
+}
 
 export default function StudyDetail(){
  const { id } = useParams<{ id: string }>();
