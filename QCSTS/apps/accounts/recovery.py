@@ -39,6 +39,7 @@ def issue_email_verification(user):
 
 
 class PasswordResetRequestView(PublicAPIView):
+    """Public recovery request; it never requires tenant selection or reveals account existence."""
     serializer_class = PasswordResetRequestSerializer
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
@@ -65,6 +66,7 @@ class PasswordResetRequestView(PublicAPIView):
 
 
 class PasswordResetConfirmView(PublicAPIView):
+    """Public reset completion authorized by an expiring, single-use Django reset token."""
     serializer_class = PasswordResetConfirmSerializer
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
@@ -89,6 +91,7 @@ class PasswordResetConfirmView(PublicAPIView):
 
 
 class VerifyEmailView(PublicAPIView):
+    """Public email verification authorized by an expiring, hashed single-use token."""
     serializer_class = VerifyEmailSerializer
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
