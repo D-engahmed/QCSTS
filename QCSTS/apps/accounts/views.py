@@ -314,7 +314,8 @@ class ChangePasswordView(TenantExemptAPIView):
         serializer.is_valid(raise_exception=True)
         user = request.user
         user.set_password(serializer.validated_data["new_password"])
-        user.save(update_fields=["password"])
+        user.password_changed_at = timezone.now()
+        user.save(update_fields=["password", "password_changed_at"])
         return success_response(message="Password changed successfully.")
 
 
