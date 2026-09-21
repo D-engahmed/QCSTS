@@ -143,6 +143,7 @@ export const endpoints = {
   sites: "/platform/sites/",
   site: (id: string) => `/platform/sites/${id}/`,
   dashboard: "/reports/dashboard/",
+  analytics: "/reports/analytics/",
   exports: "/reports/export.csv/",
   studies: "/stability/studies/",
   storageConditions: "/stability/storage-conditions/",
