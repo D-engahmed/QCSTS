@@ -19,6 +19,7 @@ class LoginSerializer(serializers.Serializer):
 
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, trim_whitespace=False)
+    otp = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
 
     def validate(self, data):
         email = data.get("email")
@@ -37,6 +38,14 @@ class LoginSerializer(serializers.Serializer):
         if not user.check_password(password):
             user.register_failed_login()
             raise InvalidCredentialsError()
+
+        if user.mfa_enabled:
+            otp = data.get("otp", "")
+            if not otp:
+                raise serializers.ValidationError({"otp": ["MFA code is required."]})
+            if not user.verify_totp(otp):
+                user.register_failed_login()
+                raise InvalidCredentialsError()
 
         user.reset_failed_attempts()
         data["user"] = user
