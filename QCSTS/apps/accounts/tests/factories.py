@@ -1,7 +1,10 @@
 import factory
+from datetime import timedelta
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 from apps.accounts.models import CustomUser
 from apps.platform.models import Membership, Organization, Role
+from apps.billing.models import Plan, Subscription
 
 
 def _ensure_default_organization_membership(user):
@@ -21,6 +24,34 @@ def _ensure_default_organization_membership(user):
         organization=org,
         role=role,
         default_site=None,
+    )
+    plan, _ = Plan.objects.get_or_create(
+        code=Plan.Code.ESSENTIAL,
+        defaults={
+            "name": "Essential",
+            "description": "Test plan",
+            "monthly_price": 399,
+            "annual_price": 3990,
+            "currency": "USD",
+            "max_users": 1000,
+            "max_sites": 1000,
+            "max_studies": 1000,
+            "max_storage_mb": 100000,
+            "api_access": True,
+        },
+    )
+    now = timezone.now()
+    Subscription.objects.get_or_create(
+        organization=org,
+        status=Subscription.Status.TRIALING,
+        defaults={
+            "plan": plan,
+            "interval": Subscription.Interval.MONTH,
+            "provider": "test",
+            "trial_ends_at": now + timedelta(days=30),
+            "current_period_start": now,
+            "current_period_end": now + timedelta(days=30),
+        },
     )
 
 
