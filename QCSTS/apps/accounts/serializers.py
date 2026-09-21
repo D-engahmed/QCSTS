@@ -106,7 +106,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
         value = (value or "").strip().lower()
         if value not in allowed_roles:
             raise serializers.ValidationError(
-                f"Unknown role. Choose one of: {', '.join(sorted(ROLE_RANK))}."
+                f"Unknown role. Choose one of: {', '.join(sorted(allowed_roles))}."
             )
         return value
 
