@@ -103,7 +103,7 @@ class EmailVerificationToken(models.Model):
     class Meta:
         db_table = "accounts_email_verification_token"
         indexes = [
-            models.Index(fields=["user", "expires_at"]),
+            models.Index(fields=["user", "expires_at"], name="accounts_em_user_id_6c50a7_idx"),
         ]
 
     def set_mfa_secret(self, secret):
