@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { api, endpoints, type ApiEnvelope } from "@/lib/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
@@ -12,7 +13,7 @@ function unwrap<T>(x:any):T{return x?.data??x;}
 function rows(x:any):any[]{const d=unwrap(x);return Array.isArray(d)?d:(d?.results??d?.items??[]);}
 
 export default function StudyDetail(){
- const params=window.location.pathname.split("/"); const id=params[params.indexOf("studies")+1];
+ const { id } = useParams<{ id: string }>();
  const [study,setStudy]=useState<Study|null>(null),[batches,setBatches]=useState<Row[]>([]),[timepoints,setTimepoints]=useState<Row[]>([]),[samples,setSamples]=useState<Row[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
  const load=async()=>{setLoading(true);setError("");try{const [s,b,t,sm]=await Promise.all([api<ApiEnvelope<Study[]>>(endpoints.studies),api<ApiEnvelope<Row[]>>(endpoints.studyBatches),api<ApiEnvelope<Row[]>>(endpoints.timePoints),api<ApiEnvelope<Row[]>>(endpoints.samples)]);const current=(unwrap<Study[]>(s)||[]).find(x=>x.id===id);setStudy(current||null);setBatches(rows(b).filter(x=>String(x.study??x.study_id)===id));setTimepoints(rows(t).filter(x=>String(x.study??x.study_id)===id));setSamples(rows(sm).filter(x=>String(x.study??x.study_id)===id));}catch(e){setError(e instanceof Error?e.message:"Unable to load study.")}finally{setLoading(false)}};
  useEffect(()=>{void load()},[id]);
