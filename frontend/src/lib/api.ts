@@ -163,6 +163,7 @@ export const endpoints = {
   deviations: "/quality/deviations/",
   capa: "/quality/capa/",
   changeControls: "/quality/change-control/",
+  qualityTransition: (resource: string, id: string) => `/quality/${resource}/${id}/transition/`,
   complianceSignatures: "/compliance/signatures/",
   controlledRecords: "/compliance/records/",
   validationArtifacts: "/compliance/validation/",
