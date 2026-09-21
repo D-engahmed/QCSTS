@@ -181,3 +181,12 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class VerifyEmailSerializer(serializers.Serializer):
     token = serializers.CharField()
+
+
+class MFACodeSerializer(serializers.Serializer):
+    code = serializers.RegexField(regex=r"^\d{6}$")
+
+
+class MFADisableSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    code = serializers.RegexField(regex=r"^\d{6}$")
