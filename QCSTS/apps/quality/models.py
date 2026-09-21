@@ -77,6 +77,13 @@ class OOTInvestigation(QualityEvent):
 
 
 class Deviation(QualityEvent):
+    source_oos = models.ForeignKey(
+        "quality.OOSInvestigation",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="deviations",
+    )
     detected_at = models.DateTimeField(null=True, blank=True)
     process_area = models.CharField(max_length=120, blank=True)
     immediate_action = models.TextField(blank=True)
@@ -85,8 +92,20 @@ class Deviation(QualityEvent):
         db_table = "quality_deviation"
         constraints = [models.UniqueConstraint(fields=["organization", "reference"], name="deviation_reference_per_org")]
 
+    def save(self, *args, **kwargs):
+        if self.source_oos_id:
+            self.assert_same_organization(source_oos=self.source_oos)
+        super().save(*args, **kwargs)
+
 
 class CAPA(QualityEvent):
+    source_deviation = models.ForeignKey(
+        "quality.Deviation",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="capas",
+    )
     corrective_action = models.TextField()
     preventive_action = models.TextField(blank=True)
     effectiveness_check = models.TextField(blank=True)
@@ -95,6 +114,11 @@ class CAPA(QualityEvent):
     class Meta:
         db_table = "quality_capa"
         constraints = [models.UniqueConstraint(fields=["organization", "reference"], name="capa_reference_per_org")]
+
+    def save(self, *args, **kwargs):
+        if self.source_deviation_id:
+            self.assert_same_organization(source_deviation=self.source_deviation)
+        super().save(*args, **kwargs)
 
 
 class ChangeControl(QualityEvent):
