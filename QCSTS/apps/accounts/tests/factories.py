@@ -34,6 +34,12 @@ class UserFactory(DjangoModelFactory):
     is_active = True
     password = factory.PostGenerationMethodCall("set_password", "TestPass123!")
 
+    @classmethod
+    def _after_postgeneration(cls, instance, create, results=None):
+        # Preserve the final save without factory_boy's deprecated warning path.
+        if create and results:
+            instance.save()
+
     @factory.post_generation
     def attach_default_membership(obj, create, extracted, **kwargs):
         if not create:
