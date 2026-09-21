@@ -385,9 +385,30 @@ class UserDetailView(TenantScopedAPIView):
         if not membership:
             return error_response({"detail": "User not found."}, status.HTTP_404_NOT_FOUND)
 
-        before = {"full_name": membership.user.full_name}
+        payload = request.data.copy()
+        requested_site_id = payload.pop("site_id", None)
+        before = {
+            "full_name": membership.user.full_name,
+            "site_id": str(membership.default_site_id) if membership.default_site_id else None,
+        }
+
+        if requested_site_id is not None:
+            site_id = requested_site_id[0] if isinstance(requested_site_id, list) else requested_site_id
+            site = (
+                Site.objects.filter(
+                    id=site_id,
+                    organization=request.organization,
+                    status=Site.Status.ACTIVE,
+                ).first()
+            )
+            if site is None:
+                return error_response({"detail": "The selected site is not available in this organization."}, status.HTTP_400_BAD_REQUEST)
+            membership.default_site = site
+            membership.save(update_fields=["default_site", "updated_at"])
+            membership.sites.set([site])
+
         serializer = UserSerializer(
-            membership.user, data=request.data, partial=True,
+            membership.user, data=payload, partial=True,
             context={"organization": request.organization},
         )
         serializer.is_valid(raise_exception=True)
@@ -396,9 +417,14 @@ class UserDetailView(TenantScopedAPIView):
         AuditService.log(
             performed_by=request.user, action="UPDATE", model_name="CustomUser",
             object_id=user.id, object_repr=str(user),
-            old_value=before, new_value={"full_name": user.full_name},
+            old_value=before,
+            new_value={
+                "full_name": user.full_name,
+                "site_id": str(membership.default_site_id) if membership.default_site_id else None,
+            },
             ip_address=request.META.get("REMOTE_ADDR"),
             organization=request.organization,
+            notes="Organization member profile/site assignment updated.",
         )
         return success_response(
             data=UserSerializer(user, context={"organization": request.organization}).data
