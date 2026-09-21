@@ -11,6 +11,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [needsOtp, setNeedsOtp] = useState(false);
+  const [otp, setOtp] = useState("");
 
   useEffect(() => {
     if (user) window.location.replace("/app");
@@ -22,10 +24,12 @@ export default function Login() {
     setError("");
 
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, needsOtp ? otp : undefined);
       window.location.assign("/app");
     } catch (value) {
-      setError(value instanceof Error ? value.message : "Unable to sign in.");
+      const message = value instanceof Error ? value.message : "Unable to sign in.";
+      if (message.toLowerCase().includes("mfa code is required")) setNeedsOtp(true);
+      setError(message);
     } finally {
       setBusy(false);
     }
@@ -77,6 +81,23 @@ export default function Login() {
           <div className="auth-alt" style={{ justifyContent: "flex-end", marginTop: -6 }}>
             <Link href="/forgot-password">Forgot password?</Link>
           </div>
+
+          {needsOtp && (
+            <label className="field">
+              <span>Authenticator code</span>
+              <input
+                value={otp}
+                onChange={(event) => setOtp(event.target.value)}
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                autoComplete="one-time-code"
+                required
+                placeholder="123456"
+              />
+              <small>Enter the current 6-digit code from your authenticator app.</small>
+            </label>
+          )}
 
           <button className="btn primary full" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
