@@ -50,13 +50,27 @@ class TestTenantContextService(TestCase):
         with self.assertRaises(PermissionDenied):
             TenantContextService.resolve(request)
 
-    def test_requires_context_selection_when_user_has_multiple_memberships(self):
+    def test_ignores_inactive_historical_memberships(self):
         user = self.create_user()
-        create_membership(user, "acme", "Cairo")
-        create_membership(user, "other", "Alexandria")
+        active_membership, _ = create_membership(user, "acme", "Cairo")
+        historical_org = Organization.objects.create(name="Other", slug="other", country="EG")
+        historical_site = Site.objects.create(
+            organization=historical_org, name="Alexandria", country="EG"
+        )
+        historical_role = Role.objects.create(
+            organization=historical_org, name="other-analyst"
+        )
+        Membership.objects.create(
+            user=user,
+            organization=historical_org,
+            role=historical_role,
+            default_site=historical_site,
+            is_active=False,
+        )
         request = APIRequestFactory().get("/")
         force_authenticate(request, user=user)
         request.user = user
 
-        with self.assertRaises(ValidationError):
-            TenantContextService.resolve(request)
+        context = TenantContextService.resolve(request)
+
+        assert context.organization_id == str(active_membership.organization_id)

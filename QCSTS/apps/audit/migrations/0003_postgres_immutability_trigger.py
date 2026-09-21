@@ -25,11 +25,21 @@ DROP FUNCTION IF EXISTS qcsts_prevent_audit_mutation();
 """
 
 
+def create_trigger(apps, schema_editor):
+    if schema_editor.connection.vendor == "postgresql":
+        schema_editor.execute(SQL)
+
+
+def drop_trigger(apps, schema_editor):
+    if schema_editor.connection.vendor == "postgresql":
+        schema_editor.execute(REVERSE_SQL)
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("audit", "0002_add_organization_boundary"),
     ]
 
     operations = [
-        migrations.RunSQL(SQL, REVERSE_SQL),
+        migrations.RunPython(create_trigger, drop_trigger),
     ]

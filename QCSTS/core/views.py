@@ -62,6 +62,11 @@ class TenantScopedViewSet(ReadOnlyModelViewSet):
     tenant_scoped = True
     billing_required = True
 
+    def perform_authentication(self, request):
+        super().perform_authentication(request)
+        if request.user and request.user.is_authenticated:
+            TenantContextService.resolve(request)
+
     def get_permissions(self):
         declared = self.__class__.__dict__.get("permission_classes")
         if declared is None:
@@ -84,6 +89,11 @@ class TenantScopedViewSet(ReadOnlyModelViewSet):
 class TenantScopedModelViewSet(ModelViewSet):
     tenant_scoped = True
     billing_required = True
+
+    def perform_authentication(self, request):
+        super().perform_authentication(request)
+        if request.user and request.user.is_authenticated:
+            TenantContextService.resolve(request)
 
     def get_permissions(self):
         declared = self.__class__.__dict__.get("permission_classes")

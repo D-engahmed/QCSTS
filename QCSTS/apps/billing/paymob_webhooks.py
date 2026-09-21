@@ -5,13 +5,13 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
+from core.views import TenantExemptAPIView
 
 from .models import Invoice, PaymentEvent, Subscription
 from .paymob import verify_transaction_hmac
 
 
-class PaymobTransactionWebhookView(APIView):
+class PaymobTransactionWebhookView(TenantExemptAPIView):
     """Authenticated Paymob server-to-server transaction callback.
 
     The customer redirect is never treated as proof of payment. Paymob's

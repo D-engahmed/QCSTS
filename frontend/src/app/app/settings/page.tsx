@@ -1,1 +1,97 @@
-"use client";import {useState} from "react";import {api,endpoints} from "@/lib/api";export default function Settings(){const [current,setCurrent]=useState(""),[next,setNext]=useState(""),[message,setMessage]=useState(""),[error,setError]=useState("");async function submit(e:React.FormEvent){e.preventDefault();setMessage("");setError("");try{await api(endpoints.changePassword,{method:"POST",body:JSON.stringify({current_password:current,new_password:next})});setCurrent("");setNext("");setMessage("Password changed successfully.")}catch(x){setError(x instanceof Error?x.message:"Unable to change password.")}}return <div className="content"><div className="page-header"><div><span className="eyebrow">ACCOUNT</span><h1>Security settings</h1><p>Manage your own credentials. Organization administration is separate.</p></div></div><section className="card form-card"><h3>Change password</h3><form onSubmit={submit}><label className="field"><span>Current password</span><input type="password" value={current} onChange={e=>setCurrent(e.target.value)} required/></label><label className="field"><span>New password</span><input type="password" minLength={12} value={next} onChange={e=>setNext(e.target.value)} required/><small>Minimum 12 characters.</small></label>{error&&<div className="form-error">{error}</div>}{message&&<div className="form-success">{message}</div>}<button className="btn primary">Update password</button></form></section></div>}
+"use client";
+
+import { useEffect, useState } from "react";
+import { api, endpoints, type ApiEnvelope } from "@/lib/api";
+
+type MFASetup = { secret:string; otpauth_uri:string };
+
+export default function Settings() {
+  const [current,setCurrent]=useState("");
+  const [next,setNext]=useState("");
+  const [message,setMessage]=useState("");
+  const [error,setError]=useState("");
+  const [mfaEnabled,setMfaEnabled]=useState(false);
+  const [setup,setSetup]=useState<MFASetup|null>(null);
+  const [mfaCode,setMfaCode]=useState("");
+  const [mfaPassword,setMfaPassword]=useState("");
+  const [mfaBusy,setMfaBusy]=useState(false);
+
+  async function submit(e:React.FormEvent){
+    e.preventDefault();setMessage("");setError("");
+    try{
+      await api(endpoints.changePassword,{method:"POST",body:JSON.stringify({current_password:current,new_password:next})});
+      setCurrent("");setNext("");setMessage("Password changed successfully.");
+    }catch(x){setError(x instanceof Error?x.message:"Unable to change password.");}
+  }
+
+  async function loadMfa(){
+    try{
+      const r=await api<ApiEnvelope<{enabled:boolean}>>(endpoints.mfaStatus);
+      setMfaEnabled(Boolean(r.data?.enabled));
+    }catch(x){setError(x instanceof Error?x.message:"Unable to load MFA status.");}
+  }
+  useEffect(()=>{void loadMfa()},[]);
+
+  async function startMfa(){
+    setMfaBusy(true);setError("");setMessage("");
+    try{
+      const r=await api<ApiEnvelope<MFASetup>>(endpoints.mfaSetup,{method:"POST"});
+      setSetup(r.data);
+    }catch(x){setError(x instanceof Error?x.message:"Unable to start MFA setup.");}
+    finally{setMfaBusy(false);}
+  }
+
+  async function confirmMfa(){
+    setMfaBusy(true);setError("");setMessage("");
+    try{
+      await api(endpoints.mfaConfirm,{method:"POST",body:JSON.stringify({code:mfaCode})});
+      setMfaEnabled(true);setSetup(null);setMfaCode("");setMessage("MFA enabled successfully.");
+    }catch(x){setError(x instanceof Error?x.message:"Invalid MFA code.");}
+    finally{setMfaBusy(false);}
+  }
+
+  async function disableMfa(){
+    setMfaBusy(true);setError("");setMessage("");
+    try{
+      await api(endpoints.mfaDisable,{method:"POST",body:JSON.stringify({password:mfaPassword,code:mfaCode})});
+      setMfaEnabled(false);setMfaPassword("");setMfaCode("");setMessage("MFA disabled.");
+    }catch(x){setError(x instanceof Error?x.message:"Unable to disable MFA.");}
+    finally{setMfaBusy(false);}
+  }
+
+  return <div className="content">
+    <div className="page-header"><div><span className="eyebrow">ACCOUNT</span><h1>Security settings</h1><p>Manage credentials and multi-factor authentication for your own account.</p></div></div>
+
+    <section className="card form-card">
+      <h3>Change password</h3>
+      <form onSubmit={submit}>
+        <label className="field"><span>Current password</span><input type="password" autoComplete="current-password" value={current} onChange={e=>setCurrent(e.target.value)} required/></label>
+        <label className="field"><span>New password</span><input type="password" autoComplete="new-password" minLength={12} value={next} onChange={e=>setNext(e.target.value)} required/><small>Minimum 12 characters.</small></label>
+        {message&&<div className="form-success">{message}</div>}
+        {error&&<div className="form-error">{error}</div>}
+        <button className="btn primary">Update password</button>
+      </form>
+    </section>
+
+    <section className="card form-card">
+      <div className="card-header"><div><strong>Multi-factor authentication</strong><span>{mfaEnabled?"MFA is enabled on this account.":"Add an authenticator app as a second factor."}</span></div><span className={"status "+(mfaEnabled?"active":"warning")}>{mfaEnabled?"Enabled":"Not enabled"}</span></div>
+
+      {!mfaEnabled && !setup && <button className="btn primary" onClick={()=>void startMfa()} disabled={mfaBusy}>{mfaBusy?"Starting…":"Set up authenticator"}</button>}
+
+      {!mfaEnabled && setup && <div className="form-card">
+        <p>Use your authenticator app to add this QCSTS account. A QR image is not generated by the server; the standard URI and secret below can be entered manually.</p>
+        <label className="field"><span>Secret</span><input readOnly value={setup.secret}/></label>
+        <label className="field"><span>Authenticator URI</span><textarea readOnly value={setup.otpauth_uri}/></label>
+        <label className="field"><span>Verification code</span><input value={mfaCode} onChange={e=>setMfaCode(e.target.value)} inputMode="numeric" pattern="\d{6}" maxLength={6} required placeholder="123456"/></label>
+        <div className="modal-actions"><button className="btn" type="button" onClick={()=>{setSetup(null);setMfaCode("")}}>Cancel</button><button className="btn primary" type="button" onClick={()=>void confirmMfa()} disabled={mfaBusy||mfaCode.length!==6}>{mfaBusy?"Verifying…":"Enable MFA"}</button></div>
+      </div>}
+
+      {mfaEnabled && <div className="form-card">
+        <p>Disabling MFA requires both your current password and a valid current authenticator code.</p>
+        <label className="field"><span>Current password</span><input type="password" autoComplete="current-password" value={mfaPassword} onChange={e=>setMfaPassword(e.target.value)}/></label>
+        <label className="field"><span>Authenticator code</span><input value={mfaCode} onChange={e=>setMfaCode(e.target.value)} inputMode="numeric" pattern="\d{6}" maxLength={6} placeholder="123456"/></label>
+        <button className="btn" onClick={()=>void disableMfa()} disabled={mfaBusy||!mfaPassword||mfaCode.length!==6}>{mfaBusy?"Disabling…":"Disable MFA"}</button>
+      </div>}
+    </section>
+  </div>;
+}

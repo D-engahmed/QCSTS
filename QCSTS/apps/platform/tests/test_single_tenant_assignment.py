@@ -1,5 +1,5 @@
 import pytest
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
 from apps.accounts.tests.factories import UserFactory
 from apps.platform.models import Membership, Organization, Role
@@ -13,11 +13,12 @@ def test_user_can_have_only_one_active_tenant_membership():
     second_role = Role.objects.create(organization=second_org, name="analyst")
 
     with pytest.raises(IntegrityError):
-        Membership.objects.create(
-            user=user,
-            organization=second_org,
-            role=second_role,
-            is_active=True,
-        )
+        with transaction.atomic():
+            Membership.objects.create(
+                user=user,
+                organization=second_org,
+                role=second_role,
+                is_active=True,
+            )
 
     assert user.memberships.filter(is_active=True).count() == 1

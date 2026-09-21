@@ -22,6 +22,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 # Paymob webhook HMAC secret. Never commit a real value.
 PAYMOB_HMAC_SECRET = env("PAYMOB_HMAC_SECRET", default="")
+MFA_ENCRYPTION_KEY = env("MFA_ENCRYPTION_KEY", default="")
 
 DEBUG = env.bool("DEBUG", default=False)
 
@@ -71,6 +72,7 @@ LOCAL_APPS = [
     "apps.reports",
     "apps.quality",
     "apps.compliance",
+    "apps.notifications",
 ]
 
 INSTALLED_APPS = (

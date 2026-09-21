@@ -3,7 +3,13 @@ from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
+import base64
+import hashlib
+import hmac
+import struct
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.conf import settings
+from cryptography.fernet import Fernet
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -12,6 +18,7 @@ class CustomUserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
+        user.password_changed_at = timezone.now()
         user.save(using=self._db)
         return user
 
@@ -45,6 +52,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     password_changed_at = models.DateTimeField(null=True, blank=True)
     email_verified_at = models.DateTimeField(null=True, blank=True)
+    mfa_enabled = models.BooleanField(default=False)
+    mfa_secret_encrypted = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -95,5 +104,35 @@ class EmailVerificationToken(models.Model):
     class Meta:
         db_table = "accounts_email_verification_token"
         indexes = [
-            models.Index(fields=["user", "expires_at"]),
+            models.Index(fields=["user", "expires_at"], name="accounts_em_user_id_6c50a7_idx"),
         ]
+
+    def set_mfa_secret(self, secret):
+        key = getattr(settings, "MFA_ENCRYPTION_KEY", "")
+        if not key:
+            raise RuntimeError("MFA_ENCRYPTION_KEY is not configured.")
+        self.mfa_secret_encrypted = Fernet(key.encode()).encrypt(secret.encode()).decode()
+
+    def get_mfa_secret(self):
+        key = getattr(settings, "MFA_ENCRYPTION_KEY", "")
+        if not key or not self.mfa_secret_encrypted:
+            return None
+        return Fernet(key.encode()).decrypt(self.mfa_secret_encrypted.encode()).decode()
+
+    def verify_totp(self, code, timestamp=None):
+        secret = self.get_mfa_secret()
+        if not secret or not code or not code.isdigit() or len(code) != 6:
+            return False
+        timestamp = timezone.now().timestamp() if timestamp is None else timestamp
+        counter = int(timestamp // 30)
+        padding = "=" * ((8 - len(secret) % 8) % 8)
+        key = base64.b32decode(secret.upper() + padding)
+        for offset in (-1, 0, 1):
+            moving = counter + offset
+            digest = hmac.new(key, struct.pack(">Q", moving), hashlib.sha1).digest()
+            index = digest[-1] & 0x0F
+            binary = ((digest[index] & 0x7F) << 24) | (digest[index + 1] << 16) | (digest[index + 2] << 8) | digest[index + 3]
+            expected = f"{binary % 1000000:06d}"
+            if hmac.compare_digest(expected, code):
+                return True
+        return False

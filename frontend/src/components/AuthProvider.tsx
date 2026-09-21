@@ -13,7 +13,7 @@ type AuthContextValue = {
   organization: Organization | null;
   site: Site | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, otp?: string) => Promise<void>;
   register: (input: RegistrationInput) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -84,10 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void loadSession();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, otp?: string) => {
     const response = await api<ApiEnvelope<AuthResponse>>(endpoints.login, {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, ...(otp ? { otp } : {}) }),
       skipRefresh: true,
     });
 

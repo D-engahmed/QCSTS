@@ -13,4 +13,8 @@ app.conf.beat_schedule = {
         "task": "apps.schedule.tasks.mark_overdue_test_points",
         "schedule": crontab(hour=6, minute=0),
     },
+    "notify-upcoming-and-overdue-test-points": {
+        "task": "apps.notifications.tasks.notify_upcoming_and_overdue_test_points",
+        "schedule": crontab(hour=7, minute=0),
+    },
 }
