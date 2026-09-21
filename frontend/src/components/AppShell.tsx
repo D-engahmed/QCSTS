@@ -59,6 +59,7 @@ const groups: Array<[string, NavItem[]]> = [
   ["Quality & evidence", [
     ["Quality", "/app/quality", ShieldCheck],
     ["Audit trail", "/app/audit", ReceiptText],
+    ["Reports & exports", "/app/reports", ReceiptText],
     ["Compliance", "/app/compliance", ClipboardCheck],
   ]],
   ["Administration", [
