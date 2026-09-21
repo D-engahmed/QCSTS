@@ -74,7 +74,18 @@ jobs:
       - name: Verify installed Python dependencies
         run: python -m pip check
 
-      - name: Django system checks
+      - name: Django application system checks
+        run: python manage.py check
+
+      - name: Production deployment checks
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.production
+          DJANGO_SECRET_KEY: ci-production-secret-key-1234567890-abcdefghijklmnopqrstuvwxyz
+          DEBUG: "False"
+          ALLOWED_HOSTS: app.example.com
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/qcsts_ci
+          REDIS_URL: redis://127.0.0.1:6379/0
+          PAYMOB_HMAC_SECRET: ci-paymob-hmac-secret
         run: python manage.py check --deploy
 
       - name: Migration graph is synchronized
