@@ -2,7 +2,9 @@ from core.views import TenantScopedAPIView
 from rest_framework import status
 from django.utils import timezone
 
-from apps.products.models import Monograph, MonographTest, Product\nfrom apps.compliance.models import ElectronicSignature\nfrom services.signature_service import SignatureService
+from apps.products.models import Monograph, MonographTest, Product
+from apps.compliance.models import ElectronicSignature
+from services.signature_service import SignatureService
 from apps.products.serializers import (
     MonographSerializer,
     MonographCreateSerializer,

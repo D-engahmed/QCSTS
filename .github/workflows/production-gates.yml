@@ -48,7 +48,8 @@ jobs:
         working-directory: QCSTS
     env:
       DJANGO_SETTINGS_MODULE: config.settings.test
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/qcsts_ci\n      CI_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/qcsts_ci
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/qcsts_ci
+      CI_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/qcsts_ci
       REDIS_URL: redis://127.0.0.1:6379/0
       CELERY_BROKER_URL: redis://127.0.0.1:6379/0
       CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/0
@@ -73,7 +74,18 @@ jobs:
       - name: Verify installed Python dependencies
         run: python -m pip check
 
-      - name: Django system checks
+      - name: Django application system checks
+        run: python manage.py check
+
+      - name: Production deployment checks
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.production
+          DJANGO_SECRET_KEY: ci-production-secret-key-1234567890-abcdefghijklmnopqrstuvwxyz
+          DEBUG: "False"
+          ALLOWED_HOSTS: app.example.com
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/qcsts_ci
+          REDIS_URL: redis://127.0.0.1:6379/0
+          PAYMOB_HMAC_SECRET: ci-paymob-hmac-secret
         run: python manage.py check --deploy
 
       - name: Migration graph is synchronized
@@ -120,8 +132,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
+      - run: npm run check:no-demo
       - run: npm run typecheck
       - run: npm run build
+      - name: Start production frontend
+        run: npm start > /tmp/qcsts-next.log 2>&1 &
+      - run: node scripts/smoke-routes.mjs
 
   container:
     name: Container build

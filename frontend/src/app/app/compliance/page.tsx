@@ -1,0 +1,4 @@
+"use client";
+import EntityWorkspace from "@/components/EntityWorkspace";
+import { endpoints } from "@/lib/api";
+export default function Compliance(){return <EntityWorkspace eyebrow="COMPLIANCE" title="Controlled compliance records" description="Inspect electronic signatures, controlled records and validation artifacts returned by the compliance APIs. Creation and locking remain server-controlled." endpoint={endpoints.controlledRecords} readonly columns={[{key:"record_type",label:"Record type",sortable:true},{key:"record_id",label:"Record ID"},{key:"status",label:"Status"},{key:"approved_by",label:"Approved by"},{key:"locked_at",label:"Locked at"}]}/>}

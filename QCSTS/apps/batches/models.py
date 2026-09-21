@@ -64,7 +64,8 @@ class Batch(BaseModel):
                 condition=models.Q(is_active=True),
                 name="active_chamber_location_per_org",
             )
-        ]\n        indexes = [
+        ]
+        indexes = [
             models.Index(fields=["batch_number"]),
             models.Index(fields=["status"]),
             models.Index(fields=["study_type"]),

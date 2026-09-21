@@ -1,6 +1,6 @@
 """Tenant-scoped API and viewset base classes with release-critical controls."""
 
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, SAFE_METHODS
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
@@ -27,7 +27,7 @@ class TenantScopedAPIView(APIView):
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
-        if self.billing_required:
+        if self.billing_required and request.method not in SAFE_METHODS:
             EntitlementService.require_usable_subscription(request.organization)
 
     def get_permissions(self):
@@ -74,7 +74,7 @@ class TenantScopedViewSet(ReadOnlyModelViewSet):
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
-        if self.billing_required:
+        if self.billing_required and request.method not in SAFE_METHODS:
             EntitlementService.require_usable_subscription(request.organization)
 
     def get_queryset(self):
@@ -97,7 +97,7 @@ class TenantScopedModelViewSet(ModelViewSet):
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
-        if self.billing_required:
+        if self.billing_required and request.method not in SAFE_METHODS:
             EntitlementService.require_usable_subscription(request.organization)
 
     def get_queryset(self):

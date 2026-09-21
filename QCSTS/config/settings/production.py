@@ -24,3 +24,5 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 # If TLS is terminated by a trusted reverse proxy/load balancer, Django
 # must use the forwarded scheme when evaluating secure-request checks.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+SECURE_HSTS_PRELOAD = True

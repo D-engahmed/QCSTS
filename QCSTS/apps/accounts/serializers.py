@@ -65,11 +65,12 @@ class UserSerializer(serializers.ModelSerializer):
     """Read view of a user. Authority comes from Membership.role."""
 
     organization_role = serializers.SerializerMethodField()
+    organization_site = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
         fields = [
-            "id", "email", "full_name", "role", "organization_role",
+            "id", "email", "full_name", "role", "organization_role", "organization_site",
             "is_active", "created_at",
         ]
         read_only_fields = ["id", "email", "role", "organization_role", "created_at"]
@@ -78,10 +79,17 @@ class UserSerializer(serializers.ModelSerializer):
         organization = self.context.get("organization")
         if organization is None:
             return None
-        membership = obj.memberships.filter(
-            organization=organization
-        ).select_related("role").first()
+        membership = obj.memberships.filter(organization=organization).select_related("role").first()
         return membership.role.name if membership else None
+
+    def get_organization_site(self, obj):
+        organization = self.context.get("organization")
+        if organization is None:
+            return None
+        membership = obj.memberships.filter(organization=organization).select_related("default_site").first()
+        if not membership or not membership.default_site:
+            return None
+        return {"id": str(membership.default_site.id), "name": membership.default_site.name}
 
 
 class CreateUserSerializer(serializers.ModelSerializer):
@@ -93,10 +101,10 @@ class CreateUserSerializer(serializers.ModelSerializer):
         fields = ["email", "full_name", "role", "password"]
 
     def validate_role(self, value):
-        from core.permissions import ROLE_RANK
+        allowed_roles = {"viewer", "analyst", "supervisor", "qa_manager", "admin"}
 
         value = (value or "").strip().lower()
-        if value not in ROLE_RANK:
+        if value not in allowed_roles:
             raise serializers.ValidationError(
                 f"Unknown role. Choose one of: {', '.join(sorted(ROLE_RANK))}."
             )

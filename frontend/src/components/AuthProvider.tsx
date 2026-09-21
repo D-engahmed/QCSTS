@@ -100,15 +100,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const orgList = orgResponse.data ?? [];
     setOrganizations(orgList);
 
-    if (orgList[0]) {
-      authStorage.setOrganization(orgList[0].id);
+    const activeOrganization = response.data.organization ?? orgList[0] ?? null;
+    if (activeOrganization) {
+      authStorage.setOrganization(activeOrganization.id);
       const siteResponse = await api<ApiEnvelope<Site[]>>(endpoints.sites, {
         token: response.data.access,
-        organizationId: orgList[0].id,
+        organizationId: activeOrganization.id,
       });
       const siteList = siteResponse.data ?? [];
       setSites(siteList);
-      authStorage.setSite(siteList[0]?.id ?? null);
+      const activeSite = response.data.site ?? siteList[0] ?? null;
+      authStorage.setSite(activeSite?.id ?? null);
     } else {
       authStorage.setOrganization(null);
       authStorage.setSite(null);

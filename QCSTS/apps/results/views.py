@@ -204,11 +204,11 @@ class CorrectResultView(TenantScopedAPIView):
             record_type="TestResult",
             record_id=result_id,
         ).first()
-        if controlled and controlled.status == ControlledRecord.Status.LOCKED:
-            return error_response(
-                "Approved result is locked. Create a controlled correction record instead.",
-                status_code=409,
-            )
+        # A locked result cannot be edited in-place. A controlled correction
+        # creates a new result, soft-deactivates the original, and preserves
+        # the immutable correction link and audit evidence.
+        if controlled and controlled.status == ControlledRecord.Status.LOCKED and not request.data.get("value"):
+            return error_response("Replacement value is required for a controlled correction.", status_code=400)
         original_result = get_object_or_404(
             TestResult.objects.select_related("test_point", "monograph_test"),
             id=result_id, organization=request.organization, is_active=True,

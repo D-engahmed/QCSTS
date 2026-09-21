@@ -1,0 +1,4 @@
+"use client";
+import EntityWorkspace from "@/components/EntityWorkspace";
+import { endpoints } from "@/lib/api";
+export default function SamplePulls(){return <EntityWorkspace eyebrow="EXECUTION" title="Sample pulls" description="Record controlled withdrawals from chamber inventory. Quantity is revalidated transactionally by Django." endpoint={endpoints.samplePulls} fields={[{key:"batch",label:"Batch",type:"select",required:true,optionsEndpoint:endpoints.batches},{key:"test_point",label:"Test point",type:"select",optionsEndpoint:endpoints.testPoints},{key:"qty_pulled",label:"Quantity pulled",type:"number",required:true},{key:"notes",label:"Notes",type:"textarea"}]} columns={[{key:"batch_number",label:"Batch",sortable:true},{key:"test_point",label:"Test point"},{key:"qty_pulled",label:"Qty"},{key:"pulled_by",label:"Pulled by"},{key:"pulled_at",label:"Timestamp"}]}/>}

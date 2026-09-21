@@ -1,0 +1,4 @@
+"use client";
+import EntityWorkspace from "@/components/EntityWorkspace";
+import { endpoints } from "@/lib/api";
+export default function Protocols(){return <EntityWorkspace eyebrow="STABILITY" title="Protocols" description="Controlled protocol identities used by versioned stability plans." endpoint={endpoints.protocols} fields={[{key:"code",label:"Protocol code",required:true},{key:"name",label:"Protocol name",required:true},{key:"product",label:"Product",type:"select",required:true,optionsEndpoint: endpoints.products},{key:"study_type",label:"Study type",required:true,placeholder:"accelerated / long-term"},{key:"description",label:"Description",type:"textarea"}]} columns={[{key:"code",label:"Code",sortable:true},{key:"name",label:"Name"},{key:"study_type",label:"Study type"},{key:"status",label:"Status"}]}/>}

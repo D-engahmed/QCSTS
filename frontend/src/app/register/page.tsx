@@ -11,6 +11,8 @@ const initialForm = {
   country: "EG",
   timezone: "Africa/Cairo",
   currency: "EGP",
+  site_name: "Primary Site",
+  site_address: "",
   full_name: "",
   email: "",
   password: "",
@@ -55,6 +57,8 @@ export default function Register() {
         country: form.country.trim().toUpperCase(),
         timezone: form.timezone.trim(),
         currency: form.currency.trim().toUpperCase(),
+        site_name: form.site_name.trim(),
+        site_address: form.site_address.trim(),
         full_name: form.full_name.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
@@ -145,6 +149,24 @@ export default function Register() {
               value={form.timezone}
               onChange={(event) => update("timezone", event.target.value)}
               required
+            />
+          </label>
+          <label className="field">
+            <span>Primary site</span>
+            <input
+              value={form.site_name}
+              onChange={(event) => update("site_name", event.target.value)}
+              required
+              placeholder="Cairo QC Laboratory"
+            />
+          </label>
+
+          <label className="field">
+            <span>Site address</span>
+            <textarea
+              value={form.site_address}
+              onChange={(event) => update("site_address", event.target.value)}
+              placeholder="Facility address"
             />
           </label>
 

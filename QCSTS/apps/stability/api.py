@@ -200,45 +200,54 @@ class StabilitySampleSerializer(TenantScopedModelSerializer):
 
 
 class StorageConditionViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = StorageCondition.objects.all()
     serializer_class = StorageConditionSerializer
 
 
 class ProtocolViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = Protocol.objects.all()
     serializer_class = ProtocolSerializer
 
 
 class ProtocolVersionViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = ProtocolVersion.objects.all()
     serializer_class = ProtocolVersionSerializer
 
 
 class SpecificationViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = Specification.objects.all()
     serializer_class = SpecificationSerializer
 
 
 class SpecificationVersionViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = SpecificationVersion.objects.all()
     serializer_class = SpecificationVersionSerializer
 
 
 class StabilityStudyViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = StabilityStudy.objects.all()
     serializer_class = StabilityStudySerializer
 
 
 class StudyBatchViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = StudyBatch.objects.all()
     serializer_class = StudyBatchSerializer
 
 
 class StudyTimepointViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = StudyTimepoint.objects.all()
     serializer_class = StudyTimepointSerializer
 
 
 class StabilitySampleViewSet(StabilityTenantViewSet):
+    permission_classes = [StabilityPermissionByAction]
     queryset = StabilitySample.objects.all()
     serializer_class = StabilitySampleSerializer

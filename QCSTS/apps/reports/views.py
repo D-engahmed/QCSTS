@@ -53,6 +53,32 @@ class DashboardView(TenantScopedAPIView):
                 }
                 for tp in test_points.filter(status="overdue").select_related("batch", "batch__product")[:50]
             ],
+            "upcoming_test_points": [
+                {
+                    "id": str(tp.id),
+                    "batch_number": tp.batch.batch_number,
+                    "product_name": tp.batch.product.name,
+                    "month": tp.month,
+                    "scheduled_date": tp.scheduled_date.isoformat(),
+                    "status": tp.status,
+                }
+                for tp in test_points.filter(
+                    status="pending",
+                    scheduled_date__gte=today,
+                    scheduled_date__lte=in_30_days,
+                ).select_related("batch", "batch__product").order_by("scheduled_date")[:50]
+            ],
+            "active_batches": [
+                {
+                    "id": str(batch.id),
+                    "batch_number": batch.batch_number,
+                    "product_name": batch.product.name,
+                    "study_type": batch.study_type,
+                    "location": batch.get_location(),
+                    "qty_remaining": batch.qty_remaining,
+                }
+                for batch in batches.filter(status="active").select_related("product").order_by("-created_at")[:50]
+            ],
         })
 
 

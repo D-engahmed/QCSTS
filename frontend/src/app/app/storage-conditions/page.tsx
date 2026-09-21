@@ -1,0 +1,4 @@
+"use client";
+import EntityWorkspace from "@/components/EntityWorkspace";
+import { endpoints } from "@/lib/api";
+export default function StorageConditions(){return <EntityWorkspace eyebrow="STABILITY" title="Storage conditions" description="Controlled temperature and humidity conditions used by studies and samples." endpoint={endpoints.storageConditions} fields={[{key:"code",label:"Code",required:true},{key:"name",label:"Name",required:true},{key:"temperature_min_c",label:"Minimum °C",type:"number"},{key:"temperature_max_c",label:"Maximum °C",type:"number"},{key:"humidity_min_rh",label:"Minimum RH %",type:"number"},{key:"humidity_max_rh",label:"Maximum RH %",type:"number"},{key:"description",label:"Description",type:"textarea"}]} columns={[{key:"code",label:"Code",sortable:true},{key:"name",label:"Condition"},{key:"temperature_min_c",label:"Min °C"},{key:"temperature_max_c",label:"Max °C"},{key:"status",label:"Status"}]}/>}
