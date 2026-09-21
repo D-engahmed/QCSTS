@@ -18,7 +18,7 @@ from datetime import timedelta
 
 
 def _frontend_url(path):
-    return f"{getattr(settings, "FRONTEND_PUBLIC_URL", "http://localhost:3000").rstrip("/")}{path}"
+    return f"{getattr(settings, 'FRONTEND_PUBLIC_URL', 'http://localhost:3000').rstrip('/')}{path}"
 
 
 def issue_email_verification(user):
@@ -31,7 +31,7 @@ def issue_email_verification(user):
     )
     send_mail(
         "Verify your QCSTS email",
-        f"Open this link to verify your QCSTS email: {_frontend_url("/verify-email?token="+raw)}",
+        f"Open this link to verify your QCSTS email: {_frontend_url('/verify-email?token='+raw)}",
         getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@qcsts.local"),
         [user.email],
         fail_silently=False,
@@ -54,7 +54,7 @@ class PasswordResetRequestView(PublicAPIView):
             token = default_token_generator.make_token(user)
             send_mail(
                 "Reset your QCSTS password",
-                f"Open this link to reset your QCSTS password: {_frontend_url("/reset-password?uid="+uid+"&token="+token)}",
+                f"Open this link to reset your QCSTS password: {_frontend_url('/reset-password?uid='+uid+'&token='+token)}",
                 getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@qcsts.local"),
                 [user.email],
                 fail_silently=False,
