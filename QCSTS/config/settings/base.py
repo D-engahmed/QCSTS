@@ -71,6 +71,7 @@ LOCAL_APPS = [
     "apps.reports",
     "apps.quality",
     "apps.compliance",
+    "apps.notifications",
 ]
 
 INSTALLED_APPS = (
