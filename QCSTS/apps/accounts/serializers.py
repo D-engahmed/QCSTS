@@ -101,10 +101,10 @@ class CreateUserSerializer(serializers.ModelSerializer):
         fields = ["email", "full_name", "role", "password"]
 
     def validate_role(self, value):
-        from core.permissions import ROLE_RANK
+        allowed_roles = {"viewer", "analyst", "supervisor", "qa_manager", "admin"}
 
         value = (value or "").strip().lower()
-        if value not in ROLE_RANK:
+        if value not in allowed_roles:
             raise serializers.ValidationError(
                 f"Unknown role. Choose one of: {', '.join(sorted(ROLE_RANK))}."
             )
