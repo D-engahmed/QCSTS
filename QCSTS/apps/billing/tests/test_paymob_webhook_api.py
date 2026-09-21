@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
@@ -37,7 +38,7 @@ class PaymobWebhookAPITests(TestCase):
             status=Subscription.Status.TRIALING,
             interval=Subscription.Interval.MONTH,
             current_period_start=now,
-            current_period_end=now + timezone.timedelta(days=30),
+            current_period_end=now + timedelta(days=30),
         )
         self.invoice = Invoice.objects.create(
             organization=self.org,
@@ -47,7 +48,7 @@ class PaymobWebhookAPITests(TestCase):
             currency="EGP",
             subtotal=Decimal("899.00"),
             total=Decimal("899.00"),
-            due_at=now + timezone.timedelta(days=1),
+            due_at=now + timedelta(days=1),
         )
 
         self.obj = {
