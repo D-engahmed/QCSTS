@@ -3,6 +3,9 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import CustomUser
 from apps.platform.models import Membership, Organization, Permission, Role, Site
+from apps.billing.models import Plan, Subscription
+from django.utils import timezone
+from datetime import timedelta
 
 
 class PlatformApiSecurityTests(TestCase):
@@ -49,6 +52,28 @@ class PlatformApiSecurityTests(TestCase):
         )
         other_membership.sites.add(self.other_site)
         self.client.force_authenticate(self.user)
+        plan = Plan.objects.create(
+            code=Plan.Code.ESSENTIAL,
+            name="Essential",
+            description="Test plan",
+            monthly_price=399,
+            annual_price=3990,
+            currency="USD",
+            max_users=100,
+            max_sites=20,
+            max_studies=100,
+            max_storage_mb=100000,
+            api_access=True,
+        )
+        now = timezone.now()
+        Subscription.objects.create(
+            organization=self.organization,
+            plan=plan,
+            status=Subscription.Status.ACTIVE,
+            interval=Subscription.Interval.MONTH,
+            current_period_start=now,
+            current_period_end=now + timedelta(days=30),
+        )
 
     def grant(self, *codes):
         permissions = [
