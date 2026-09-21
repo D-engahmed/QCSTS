@@ -33,3 +33,4 @@ CELERY_TASK_ALWAYS_EAGER = True
 REST_FRAMEWORK = {**REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {
     "login": "10000/min", "signature": "10000/min", "anon": "10000/min",
 }}
+\nEMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"\nFRONTEND_PUBLIC_URL = "http://testserver"\n
