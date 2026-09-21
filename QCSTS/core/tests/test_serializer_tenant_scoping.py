@@ -18,6 +18,9 @@ from rest_framework.test import APIClient
 from apps.accounts.tests.factories import UserFactory
 from apps.batches.tests.factories import BatchFactory
 from apps.platform.models import Membership, Organization, Role
+from apps.billing.models import Plan, Subscription
+from django.utils import timezone
+from datetime import timedelta
 from apps.products.tests.factories import MonographWithTestsFactory, ProductFactory
 
 
@@ -27,6 +30,34 @@ def make_tenant(slug):
     Membership.objects.filter(user=user).delete()
     role, _ = Role.objects.get_or_create(organization=org, name="analyst")
     Membership.objects.create(user=user, organization=org, role=role)
+    plan, _ = Plan.objects.get_or_create(
+        code=Plan.Code.ESSENTIAL,
+        defaults={
+            "name": "Essential",
+            "description": "Test plan",
+            "monthly_price": 399,
+            "annual_price": 3990,
+            "currency": "USD",
+            "max_users": 1000,
+            "max_sites": 100,
+            "max_studies": 1000,
+            "max_storage_mb": 100000,
+            "api_access": True,
+        },
+    )
+    now = timezone.now()
+    Subscription.objects.get_or_create(
+        organization=org,
+        status=Subscription.Status.TRIALING,
+        defaults={
+            "plan": plan,
+            "interval": Subscription.Interval.MONTH,
+            "provider": "test",
+            "trial_ends_at": now + timedelta(days=30),
+            "current_period_start": now,
+            "current_period_end": now + timedelta(days=30),
+        },
+    )
     return org, user
 
 
