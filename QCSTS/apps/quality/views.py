@@ -14,6 +14,7 @@ from .serializers import CAPASerializer, ChangeControlSerializer, DeviationSeria
 
 
 class QualityTenantViewSet(TenantScopedModelViewSet):
+    permission_classes = []
     """
     Controlled quality-event API.
 
