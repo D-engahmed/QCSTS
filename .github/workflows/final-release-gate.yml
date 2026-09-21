@@ -84,6 +84,9 @@ jobs:
       - run: npm run check:no-demo
       - run: npm run typecheck
       - run: npm run build
+      - name: Start production frontend
+        run: npm start > /tmp/qcsts-next.log 2>&1 &
+      - run: node scripts/smoke-routes.mjs
 
   production-images:
     name: Production image build gate
