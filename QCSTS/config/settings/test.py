@@ -38,3 +38,5 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 FRONTEND_PUBLIC_URL = "http://testserver"
 
 MFA_ENCRYPTION_KEY = "FNO0V6hoFD3uOI4ZhQbR_rV7bBbiEUdZaz0o-jRM7Lg="
+
+PAYMOB_HMAC_SECRET = "test-secret"
