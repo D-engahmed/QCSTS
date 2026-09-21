@@ -35,8 +35,8 @@ class Notification(BaseModel):
         db_table = "notifications_notification"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["organization", "user", "read_at"]),
-            models.Index(fields=["organization", "kind"]),
+            models.Index(fields=["organization", "user", "read_at"], name="notificatio_organiz_1dd1e2_idx"),
+            models.Index(fields=["organization", "kind"], name="notificatio_organiz_36f7bc_idx"),
         ]
 
     def save(self, *args, **kwargs):
