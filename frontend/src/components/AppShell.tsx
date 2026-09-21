@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Bell,
   Beaker,
   BookOpen,
   Boxes,
@@ -130,6 +131,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <kbd>Enter</kbd>
           </form>
           <div className="top-actions">
+            <Link className="icon-button" href="/app/notifications" aria-label="Open notifications"><Bell size={17} /></Link>
             <Link className="icon-button" href="/app/compliance" aria-label="Open compliance"><ShieldCheck size={17} /></Link>
             <Link className="profile" href="/app/settings" aria-label="Open security settings">
               <div className="avatar">{user.full_name.split(" ").map((x) => x[0]).slice(0, 2).join("").toUpperCase()}</div>
