@@ -1,0 +1,4 @@
+"use client";
+import EntityWorkspace from "@/components/EntityWorkspace";
+import { endpoints } from "@/lib/api";
+export default function SpecificationVersions(){return <EntityWorkspace eyebrow="CONTROLLED DATA" title="Specification versions" description="Versioned specification references with server-controlled approval and effective transitions." endpoint={endpoints.specificationVersions} fields={[{key:"specification",label:"Specification",type:"select",required:true,optionsEndpoint={endpoints.specifications}},{key:"version",label:"Version",required:true},{key:"effective_date",label:"Effective date",type:"date"},{key:"change_reason",label:"Change reason",type:"textarea",required:true}]} columns={[{key:"specification",label:"Specification"},{key:"version",label:"Version",sortable:true},{key:"status",label:"Status"},{key:"approved_at",label:"Approved at"}]}/>}
