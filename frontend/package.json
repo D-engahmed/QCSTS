@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "check:no-demo": "node scripts/check-no-demo.mjs"
+    "check:no-demo": "node scripts/check-no-demo.mjs",
+    "check:routes": "node scripts/smoke-routes.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
