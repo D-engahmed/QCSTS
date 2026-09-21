@@ -18,6 +18,7 @@ class CustomUserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
+        user.password_changed_at = timezone.now()
         user.save(using=self._db)
         return user
 
