@@ -46,11 +46,55 @@ class LoginView(PublicAPIView):
             performed_by=user, action="LOGIN", model_name="CustomUser",
             object_id=user.id, object_repr=str(user), ip_address=ip,
         )
+        membership = (
+            Membership.objects.select_related("organization", "default_site", "role")
+            .filter(user=user, is_active=True)
+            .first()
+        )
         return success_response(
             data={
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
-                "user": UserSerializer(user).data,
+                "user": UserSerializer(
+                    user,
+                    context={"organization": membership.organization if membership else None},
+                ).data,
+                "organization": (
+                    {
+                        "id": str(membership.organization.id),
+                        "name": membership.organization.name,
+                        "legal_name": membership.organization.legal_name,
+                        "slug": membership.organization.slug,
+                        "country": membership.organization.country,
+                        "timezone": membership.organization.timezone,
+                        "currency": membership.organization.currency,
+                        "status": membership.organization.status,
+                    }
+                    if membership
+                    else None
+                ),
+                "site": (
+                    {
+                        "id": str(membership.default_site.id),
+                        "name": membership.default_site.name,
+                        "address": membership.default_site.address,
+                        "country": membership.default_site.country,
+                        "timezone": membership.default_site.timezone,
+                        "status": membership.default_site.status,
+                    }
+                    if membership and membership.default_site
+                    else None
+                ),
+                "membership": (
+                    {
+                        "id": str(membership.id),
+                        "role": membership.role.name,
+                        "organization_id": str(membership.organization_id),
+                        "site_id": str(membership.default_site_id) if membership.default_site_id else None,
+                    }
+                    if membership
+                    else None
+                ),
             }
         )
 
