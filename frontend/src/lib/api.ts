@@ -135,6 +135,7 @@ export const endpoints = {
   organizations: "/platform/organizations/",
   sites: "/platform/sites/",
   dashboard: "/reports/dashboard/",
+  exports: "/reports/export.csv/",
   studies: "/stability/studies/",
   storageConditions: "/stability/storage-conditions/",
   protocols: "/stability/protocols/",
