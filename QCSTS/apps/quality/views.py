@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from core.views import TenantScopedModelViewSet
-from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager
+from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager, DenyTenantAction
 from apps.compliance.models import ElectronicSignature
 from services.signature_service import SignatureService
 from services.audit_service import AuditService
@@ -14,7 +14,7 @@ from .serializers import CAPASerializer, ChangeControlSerializer, DeviationSeria
 
 
 class QualityTenantViewSet(TenantScopedModelViewSet):
-    permission_classes = []
+    permission_classes = [IsAnalystOrAbove]
     """
     Controlled quality-event API.
 
@@ -42,9 +42,9 @@ class QualityTenantViewSet(TenantScopedModelViewSet):
             return [IsQAManager()]
         if getattr(self, "action", None) == "transition":
             requested = getattr(self.request, "data", {}).get("status")
-            permission = self.transition_permissions.get(requested, IsQAManager)
+            permission = self.transition_permissions.get(requested, DenyTenantAction)
             return [permission()]
-        return [IsAnalystOrAbove()]
+        return [DenyTenantAction()]
 
     def perform_create(self, serializer):
         serializer.save(
