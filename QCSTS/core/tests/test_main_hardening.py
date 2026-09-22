@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import UserSerializer
@@ -17,8 +17,7 @@ from apps.platform.services import TenantContextService
 from apps.products.tests.factories import ProductFactory
 from apps.stability.models import StorageCondition
 from apps.quality.models import Deviation
-from core.permissions import IsAdmin
-, DenyTenantAction
+from core.permissions import DenyTenantAction, IsAdmin
 
 
 def make_org_user(slug, role_name="admin"):
@@ -159,7 +158,6 @@ def test_selected_site_requires_explicit_membership():
 
 
 @pytest.mark.django_db
-@pytest.mark.django_db
 def test_default_site_must_also_be_an_explicit_membership():
     user = UserFactory()
     membership = user.memberships.select_related("organization").get()
@@ -196,10 +194,11 @@ def test_explicit_inactive_site_is_rejected():
     )
     request.user = user
 
-    with pytest.raises(Exception, match="Active site"):
+    with pytest.raises(NotFound, match="Active site"):
         TenantContextService.resolve(request)
 
 
+@pytest.mark.django_db
 def test_inactive_default_site_is_not_returned_as_tenant_context():
     user = UserFactory()
     membership = user.memberships.select_related("organization").get()
