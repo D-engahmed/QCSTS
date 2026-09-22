@@ -13,7 +13,7 @@ from apps.stability.models import (
     Protocol, ProtocolVersion, Specification, SpecificationVersion,
     StabilitySample, StabilityStudy, StorageCondition, StudyBatch, StudyTimepoint,
 )
-from core.permissions import IsAdmin, IsAnalystOrAbove, IsReviewerOrAbove, IsViewer
+from core.permissions import DenyTenantAction, IsAdmin, IsAnalystOrAbove, IsReviewerOrAbove, IsViewer
 from core.responses import error_response
 from core.serializers import TenantScopedModelSerializer
 from core.views import TenantScopedModelViewSet
@@ -33,7 +33,7 @@ class StabilityPermissionByAction(BasePermission):
             return IsAdmin().has_permission(request, view)
         if getattr(view, "action", None) in {"approve", "transition"}:
             return IsReviewerOrAbove().has_permission(request, view)
-        return HasTenantContext().has_permission(request, view)
+        return DenyTenantAction().has_permission(request, view)
 
 
 class StabilityTenantViewSet(TenantScopedModelViewSet):
