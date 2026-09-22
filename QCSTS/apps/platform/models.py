@@ -124,6 +124,10 @@ class Membership(models.Model):
         if self.default_site_id and self.default_site.organization_id != self.organization_id:
             raise ValidationError({"default_site": "The default site must belong to this organization."})
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def has_permission(self, code):
         return self.role.permissions.filter(code=code).exists()
 
