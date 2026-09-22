@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.throttling import AnonRateThrottle
 
 from apps.accounts.models import CustomUser, EmailVerificationToken
+from apps.accounts.security import revoke_user_sessions
 from apps.accounts.serializers import PasswordResetRequestSerializer, PasswordResetConfirmSerializer, VerifyEmailSerializer
 from core.responses import error_response, success_response
 from core.views import PublicAPIView
