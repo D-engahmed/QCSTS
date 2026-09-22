@@ -487,7 +487,7 @@ class TestStabilityCoverage:
         assert view.allowed_transitions(StorageCondition()) == {}
 
     def test_storage_condition_transition_rejects_invalid_target(self):
-        user = UserFactory()
+        user = QAManagerFactory()
         organization = user.memberships.select_related("organization").get().organization
         condition = StorageCondition.objects.create(
             organization=organization,
