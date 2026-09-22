@@ -47,10 +47,10 @@ class BatchSerializer(TenantScopedModelSerializer):
         ]
         read_only_fields = ["id", "status", "qty_remaining", "created_at"]
 
-    def get_product_name(self, obj):
+    def get_product_name(self, obj) -> str:
         return str(obj.product)
 
-    def get_location(self, obj):
+    def get_location(self, obj) -> str:
         return obj.get_location()
 
     def validate_batch_number(self, value):
