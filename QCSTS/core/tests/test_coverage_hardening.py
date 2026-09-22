@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import struct
+from unittest.mock import Mock
 import time
 from decimal import Decimal
 from datetime import timedelta
@@ -680,3 +681,32 @@ def test_mark_overdue_task_returns_zero_when_nothing_is_due():
     from apps.schedule.tasks import mark_overdue_test_points
 
     assert mark_overdue_test_points.run() == 0
+
+
+@pytest.mark.django_db
+def test_tenant_scoped_model_viewset_perform_create_injects_tenant_fields():
+    user = UserFactory()
+    request = APIRequestFactory().post("/")
+    request.user = user
+    view = TenantScopedModelViewSet()
+    view.request = request
+    serializer = Mock()
+    view.perform_create(serializer)
+    assert serializer.save.call_count == 1
+    kwargs = serializer.save.call_args.kwargs
+    assert kwargs["organization"].id == user.memberships.select_related("organization").get().organization_id
+    assert kwargs["created_by"] == user
+
+
+@pytest.mark.django_db
+def test_tenant_scoped_viewset_get_queryset_is_tenant_scoped():
+    user = UserFactory()
+    organization = user.memberships.select_related("organization").get().organization
+    other = Organization.objects.create(name="Other Org", slug="other-org-helper", country="EG")
+    request = APIRequestFactory().get("/")
+    request.user = user
+    view = TenantScopedViewSet()
+    view.request = request
+    view.queryset = Organization.objects.all()
+    assert set(view.get_queryset().values_list("id", flat=True)) == {organization.id}
+    assert other.id not in set(view.get_queryset().values_list("id", flat=True))
