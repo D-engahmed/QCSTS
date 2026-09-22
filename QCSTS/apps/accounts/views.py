@@ -243,7 +243,7 @@ class RegisterView(PublicAPIView):
         )
 
         issue_email_verification(user)
-        refresh = RefreshToken.for_user(user)
+        refresh = issue_tokens(user)
         return success_response(
             data={
                 "access": str(refresh.access_token),
