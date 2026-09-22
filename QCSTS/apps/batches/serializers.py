@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from core.serializers import TenantScopedModelSerializer
 from django.db import transaction
+from drf_spectacular.utils import extend_schema_serializer
 
 from apps.batches.models import Batch
 from apps.schedule.models import TestPoint
@@ -12,6 +13,7 @@ from core.exceptions import (
 )
 
 
+@extend_schema_serializer(component_name="BatchTestPoint")
 class TestPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestPoint
