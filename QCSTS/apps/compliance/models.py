@@ -20,11 +20,15 @@ class ElectronicSignature(BaseModel):
     def issue(cls, *, organization, signer, record_type, record_id, record_version, meaning, reason, authentication_secret):
         if not reason.strip(): raise ValidationError("A reason is mandatory for an electronic signature.")
         if signer is None or not signer.is_active: raise PermissionDenied("The signer must be an active authenticated user.")
+        if not signer.memberships.filter(organization_id=organization.id, is_active=True).exists():
+            raise PermissionDenied("The signer must be an active member of this organization.")
         payload = "|".join([str(organization.pk), str(signer.pk), record_type, str(record_id), record_version, meaning, reason])
         return cls.objects.create(organization=organization, signer=signer, record_type=record_type, record_id=record_id, record_version=record_version, meaning=meaning, reason=reason, authentication_fingerprint=hmac.new(authentication_secret.encode(), payload.encode(), hashlib.sha256).hexdigest(), signature_digest=hashlib.sha256(payload.encode()).hexdigest())
     def save(self, *args, **kwargs):
         if self.pk and ElectronicSignature.all_objects.filter(pk=self.pk).exists(): raise PermissionDenied("Electronic signatures are immutable.")
-        self.assert_same_organization(signer=self.signer); super().save(*args, **kwargs)
+        self.assert_same_organization(signer=self.signer)
+        self.assert_user_in_organization(self.signer, "signer")
+        super().save(*args, **kwargs)
     def delete(self, *args, **kwargs): raise PermissionDenied("Electronic signatures cannot be deleted.")
 
 
@@ -43,8 +47,12 @@ class ControlledRecord(BaseModel):
         self.status = self.Status.LOCKED; self.locked_by = user; self.locked_at = timezone.now(); self.save(update_fields=["status", "locked_by", "locked_at", "updated_at"])
     def save(self, *args, **kwargs):
         if self.pk and ControlledRecord.all_objects.filter(pk=self.pk, status=self.Status.LOCKED).exists(): raise PermissionDenied("Locked records cannot be modified; create a controlled correction.")
-        if self.locked_by_id: self.assert_same_organization(locked_by=self.locked_by)
-        if self.approved_by_id: self.assert_same_organization(approved_by=self.approved_by)
+        if self.locked_by_id:
+            self.assert_same_organization(locked_by=self.locked_by)
+            self.assert_user_in_organization(self.locked_by, "locked_by")
+        if self.approved_by_id:
+            self.assert_same_organization(approved_by=self.approved_by)
+            self.assert_user_in_organization(self.approved_by, "approved_by")
         super().save(*args, **kwargs)
     def delete(self, *args, **kwargs): raise PermissionDenied("Controlled record history cannot be deleted.")
 
@@ -59,5 +67,7 @@ class ValidationArtifact(BaseModel):
         db_table = "compliance_validation_artifact"; constraints = [models.UniqueConstraint(fields=["organization", "artifact_type", "version"], name="validation_artifact_version_unique")]
     def save(self, *args, **kwargs):
         if self.pk and ValidationArtifact.all_objects.filter(pk=self.pk).exists(): raise PermissionDenied("Validation artifacts are immutable after creation; create a new version.")
-        if self.approved_by_id: self.assert_same_organization(approved_by=self.approved_by)
+        if self.approved_by_id:
+            self.assert_same_organization(approved_by=self.approved_by)
+            self.assert_user_in_organization(self.approved_by, "approved_by")
         super().save(*args, **kwargs)
