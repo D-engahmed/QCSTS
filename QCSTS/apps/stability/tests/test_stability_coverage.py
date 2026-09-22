@@ -77,5 +77,7 @@ def test_stability_transition_and_soft_delete():
     assert response.status_code == 200
 
     obj.soft_delete = MagicMock()
+    view.request = req({})
+    view.request.META = {}
     view.perform_destroy(obj)
     obj.soft_delete.assert_called_once()
