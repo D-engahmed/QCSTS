@@ -2,11 +2,14 @@ import base64
 import hashlib
 import hmac
 import struct
+from unittest.mock import Mock
 import time
 from decimal import Decimal
 from datetime import timedelta
 
 import pytest
+from rest_framework.test import APIClient, APIRequestFactory
+from django.test import override_settings
 from django.core import mail
 from django.core.management import call_command
 from django.utils import timezone
@@ -375,7 +378,7 @@ class TestReporting:
         client.force_authenticate(user=user)
         response = client.get("/api/v1/reports/export.csv?resource=unknown")
         assert response.status_code == 400
-        assert "Unsupported resource" in response.data["detail"]
+        assert "Unsupported resource" in response.data["errors"]["resource"][0]
 
 
 @pytest.mark.django_db
@@ -487,7 +490,7 @@ class TestStabilityCoverage:
         assert view.allowed_transitions(StorageCondition()) == {}
 
     def test_storage_condition_transition_rejects_invalid_target(self):
-        user = UserFactory()
+        user = QAManagerFactory()
         organization = user.memberships.select_related("organization").get().organization
         condition = StorageCondition.objects.create(
             organization=organization,
@@ -572,3 +575,197 @@ def test_notification_task_creates_and_deduplicates_due_and_overdue_notification
     second = notify_upcoming_and_overdue_test_points.delay().get(timeout=10)
     assert second == 0
     assert Notification.objects.filter(organization=organization, user=supervisor).count() == 2
+
+
+@pytest.mark.django_db
+class TestAccountModelHardening:
+    def test_create_user_requires_email(self):
+        with pytest.raises(ValueError, match="Email is required"):
+            CustomUser.objects.create_user("", "TestPass123!")
+
+    def test_create_superuser_sets_secure_defaults(self):
+        user = CustomUser.objects.create_superuser(
+            "superuser@qcsts.test",
+            "TestPass123!",
+            full_name="Platform Superuser",
+        )
+        assert user.is_superuser is True
+        assert user.is_staff is True
+        assert user.role == "admin"
+
+    def test_invalid_totp_secret_fails_closed(self):
+        user = UserFactory()
+        user.set_mfa_secret("not-a-base32-secret")
+        user.save(update_fields=["mfa_secret_encrypted"])
+        assert user.verify_totp("123456", timestamp=0) is False
+
+    def test_mfa_secret_returns_none_when_not_configured(self):
+        user = UserFactory()
+        with override_settings(MFA_ENCRYPTION_KEY=""):
+            assert user.get_mfa_secret() is None
+
+    def test_setting_mfa_without_encryption_key_fails_closed(self):
+        user = UserFactory()
+        with override_settings(MFA_ENCRYPTION_KEY=""):
+            with pytest.raises(RuntimeError, match="MFA_ENCRYPTION_KEY"):
+                user.set_mfa_secret("JBSWY3DPEHPK3PXP")
+
+
+@pytest.mark.django_db
+class TestCorePermissionGuards:
+    def test_membership_permission_requires_tenant_context(self):
+        from core.permissions import IsAnalystOrAbove, HasOrganizationPermission
+
+        request = APIRequestFactory().get("/")
+        request.user = UserFactory()
+        with pytest.raises(RuntimeError, match="requires tenant context"):
+            IsAnalystOrAbove().has_permission(request, object())
+
+    def test_unknown_role_fails_closed(self):
+        from core.permissions import IsAnalystOrAbove
+        from types import SimpleNamespace
+
+        user = UserFactory()
+        role = SimpleNamespace(name="unknown-role")
+        membership = SimpleNamespace(role=role)
+        request = SimpleNamespace(user=user, membership=membership)
+        assert IsAnalystOrAbove().has_permission(request, object()) is False
+
+    def test_permission_class_must_declare_code(self):
+        from core.permissions import HasOrganizationPermission
+
+        request = SimpleNamespace(user=UserFactory(), membership=object())
+        permission = HasOrganizationPermission()
+        with pytest.raises(RuntimeError, match="must define permission_code"):
+            permission.has_permission(request, object())
+
+
+@pytest.mark.django_db
+class TestCoreViewHelpers:
+    def test_tenant_queryset_and_create_kwargs(self):
+        from core.views import TenantScopedAPIView
+        user = UserFactory()
+        organization = user.memberships.select_related("organization").get().organization
+        request = APIRequestFactory().get("/")
+        request.user = user
+        request.organization = organization
+        view = TenantScopedAPIView()
+        view.request = request
+        queryset = Organization.objects.all()
+        assert list(view.tenant_qs(queryset).values_list("id", flat=True)) == [organization.id]
+        kwargs = view.tenant_create_kwargs(extra="value")
+        assert kwargs["organization"] == organization
+        assert kwargs["created_by"] == user
+        assert kwargs["extra"] == "value"
+
+    def test_site_queryset_filters_selected_site(self):
+        from core.views import TenantScopedAPIView
+        from apps.platform.models import Site
+        user = UserFactory()
+        organization = user.memberships.select_related("organization", "default_site").get().organization
+        site = Site.objects.create(organization=organization, name="Second Site", country="EG")
+        membership = user.memberships.get(organization=organization)
+        membership.sites.add(site)
+        request = APIRequestFactory().get("/")
+        request.user = user
+        request.organization = organization
+        request.site = site
+        view = TenantScopedAPIView()
+        view.request = request
+        qs = view.site_qs(Site.objects.all())
+        assert list(qs.values_list("id", flat=True)) == [site.id]
+
+
+@pytest.mark.django_db
+def test_mark_overdue_task_returns_zero_when_nothing_is_due():
+    from apps.schedule.tasks import mark_overdue_test_points
+
+    assert mark_overdue_test_points.run() == 0
+
+
+@pytest.mark.django_db
+def test_tenant_scoped_model_viewset_perform_create_injects_tenant_fields():
+    user = UserFactory()
+    request = APIRequestFactory().post("/")
+    request.user = user
+    view = TenantScopedModelViewSet()
+    view.request = request
+    serializer = Mock()
+    view.perform_create(serializer)
+    assert serializer.save.call_count == 1
+    kwargs = serializer.save.call_args.kwargs
+    assert kwargs["organization"].id == user.memberships.select_related("organization").get().organization_id
+    assert kwargs["created_by"] == user
+
+
+@pytest.mark.django_db
+def test_tenant_scoped_viewset_get_queryset_is_tenant_scoped():
+    user = UserFactory()
+    organization = user.memberships.select_related("organization").get().organization
+    other = Organization.objects.create(name="Other Org", slug="other-org-helper", country="EG")
+    request = APIRequestFactory().get("/")
+    request.user = user
+    view = TenantScopedViewSet()
+    view.request = request
+    view.queryset = Organization.objects.all()
+    assert set(view.get_queryset().values_list("id", flat=True)) == {organization.id}
+    assert other.id not in set(view.get_queryset().values_list("id", flat=True))
+
+
+@pytest.mark.django_db
+def test_notification_read_and_read_all_are_tenant_and_user_scoped():
+    user = UserFactory()
+    organization = user.memberships.select_related("organization").get().organization
+    other_user = UserFactory()
+    own = create_notification(
+        user=user,
+        organization=organization,
+        title="Own notification",
+        body="Own body",
+        send_email=False,
+    )
+    foreign_org = other_user.memberships.select_related("organization").get().organization
+    foreign = create_notification(
+        user=other_user,
+        organization=foreign_org,
+        title="Foreign notification",
+        body="Foreign body",
+        send_email=False,
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+    client.credentials(HTTP_X_ORGANIZATION_ID=str(organization.id))
+
+    read = client.post(f"/api/v1/notifications/{own.id}/read/")
+    assert read.status_code == 200
+    own.refresh_from_db()
+    assert own.read_at is not None
+
+    read_all = client.post("/api/v1/notifications/read-all/")
+    assert read_all.status_code == 200
+    assert Notification.objects.filter(pk=foreign.pk).exists()
+    assert read_all.data["updated"] == 0
+
+
+@pytest.mark.django_db
+def test_mark_overdue_task_keeps_processing_when_batch_recalculation_fails(monkeypatch):
+    from datetime import date
+    from apps.batches.tests.factories import BatchFactory
+    from apps.schedule.models import TestPoint
+    from apps.schedule.tasks import mark_overdue_test_points
+
+    batch = BatchFactory()
+    TestPoint.objects.create(
+        organization=batch.organization,
+        created_by=batch.created_by,
+        batch=batch,
+        month=99,
+        scheduled_date=date.today() - timedelta(days=2),
+        status="pending",
+    )
+
+    def fail_recalculation(self, *args, **kwargs):
+        raise RuntimeError("simulated recalculation failure")
+
+    monkeypatch.setattr("apps.batches.models.Batch.update_status_from_test_points", fail_recalculation)
+    assert mark_overdue_test_points.run() == 1
