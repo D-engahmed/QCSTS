@@ -136,42 +136,53 @@ class StabilityTenantViewSet(TenantScopedModelViewSet):
         return {}
 
 
-class StorageConditionSerializer(TenantScopedModelSerializer):
+class RejectDirectStatusMutationMixin:
+    """Reject explicit status writes; lifecycle changes belong to transition actions."""
+
+    def validate(self, attrs):
+        if "status" in self.initial_data:
+            raise serializers.ValidationError(
+                {"status": "Status is controlled by the stability lifecycle endpoints."}
+            )
+        return super().validate(attrs)
+
+
+class StorageConditionSerializer(RejectDirectStatusMutationMixin, TenantScopedModelSerializer):
     class Meta:
         model = StorageCondition
         fields = "__all__"
         read_only_fields = ["id", "organization", "created_at", "updated_at", "status"]
 
 
-class ProtocolSerializer(TenantScopedModelSerializer):
+class ProtocolSerializer(RejectDirectStatusMutationMixin, TenantScopedModelSerializer):
     class Meta:
         model = Protocol
         fields = "__all__"
         read_only_fields = ["id", "organization", "created_at", "updated_at", "status"]
 
 
-class ProtocolVersionSerializer(TenantScopedModelSerializer):
+class ProtocolVersionSerializer(RejectDirectStatusMutationMixin, TenantScopedModelSerializer):
     class Meta:
         model = ProtocolVersion
         fields = "__all__"
         read_only_fields = ["id", "organization", "approved_by", "approved_at", "created_at", "updated_at", "status"]
 
 
-class SpecificationSerializer(TenantScopedModelSerializer):
+class SpecificationSerializer(RejectDirectStatusMutationMixin, TenantScopedModelSerializer):
     class Meta:
         model = Specification
         fields = "__all__"
         read_only_fields = ["id", "organization", "created_at", "updated_at", "status"]
 
 
-class SpecificationVersionSerializer(TenantScopedModelSerializer):
+class SpecificationVersionSerializer(RejectDirectStatusMutationMixin, TenantScopedModelSerializer):
     class Meta:
         model = SpecificationVersion
         fields = "__all__"
         read_only_fields = ["id", "organization", "approved_by", "approved_at", "created_at", "updated_at", "status"]
 
 
-class StabilityStudySerializer(TenantScopedModelSerializer):
+class StabilityStudySerializer(RejectDirectStatusMutationMixin, TenantScopedModelSerializer):
     class Meta:
         model = StabilityStudy
         fields = "__all__"
@@ -185,14 +196,14 @@ class StudyBatchSerializer(TenantScopedModelSerializer):
         read_only_fields = ["id", "organization", "created_at", "updated_at"]
 
 
-class StudyTimepointSerializer(TenantScopedModelSerializer):
+class StudyTimepointSerializer(RejectDirectStatusMutationMixin, TenantScopedModelSerializer):
     class Meta:
         model = StudyTimepoint
         fields = "__all__"
         read_only_fields = ["id", "organization", "created_at", "updated_at", "status"]
 
 
-class StabilitySampleSerializer(TenantScopedModelSerializer):
+class StabilitySampleSerializer(RejectDirectStatusMutationMixin, TenantScopedModelSerializer):
     class Meta:
         model = StabilitySample
         fields = "__all__"
