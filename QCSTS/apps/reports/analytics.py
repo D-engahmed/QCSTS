@@ -32,10 +32,10 @@ class AnalyticsView(TenantScopedAPIView):
 
         testpoint_timeline = list(
             TestPoint.objects.filter(organization=org, is_active=True)
-            .annotate(month=TruncMonth("scheduled_date"))
-            .values("month", "status")
+            .annotate(month_bucket=TruncMonth("scheduled_date"))
+            .values("month_bucket", "status")
             .annotate(count=Count("id"))
-            .order_by("month", "status")
+            .order_by("month_bucket", "status")
         )
 
         quality_models = [
@@ -63,7 +63,7 @@ class AnalyticsView(TenantScopedAPIView):
                 "batches": batch_distribution,
                 "test_points": [
                     {
-                        "month": row["month"].date().isoformat() if row["month"] else None,
+                        "month": row["month_bucket"].date().isoformat() if row["month_bucket"] else None,
                         "status": row["status"],
                         "count": row["count"],
                     }
