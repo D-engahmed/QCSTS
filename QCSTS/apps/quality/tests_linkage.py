@@ -23,10 +23,10 @@ def test_deviation_can_link_to_oos(db, org):
     protocol = __import__("apps.stability.models", fromlist=["Protocol"]).Protocol.objects.create(
         organization=org, code="P-1", name="Protocol", product=product, study_type="long_term"
     )
-    pv = __import__("apps.stability.models", fromlist=["ProtocolVersion"]).ProtocolVersion.objects.create(
+    protocol_version = __import__("apps.stability.models", fromlist=["ProtocolVersion"]).ProtocolVersion.objects.create(
         organization=org, protocol=protocol, version="1.0"
     )
-    study = __import__("apps.stability.models", fromlist=["StabilityStudy"]).StabilityStudy.objects.create(
+    __import__("apps.stability.models", fromlist=["StabilityStudy"]).StabilityStudy.objects.create(
         organization=org,
         code="S-1",
         name="Study",
@@ -34,7 +34,7 @@ def test_deviation_can_link_to_oos(db, org):
             organization=org, name="Cairo QC", country="EG"
         ),
         product=product,
-        protocol_version=pv,
+        protocol_version=protocol_version,
         study_type="long_term",
     )
     batch = Batch.objects.create(
