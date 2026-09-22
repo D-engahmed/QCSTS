@@ -31,7 +31,7 @@ class MonographSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "approved_by", "approved_at", "created_at"]
 
-    def get_approved_by_name(self, obj):
+    def get_approved_by_name(self, obj) -> str | None:
         if obj.approved_by:
             return obj.approved_by.full_name
         return None
@@ -61,7 +61,7 @@ class ProductSerializer(TenantScopedModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
-    def get_monograph_name(self, obj):
+    def get_monograph_name(self, obj) -> str | None:
         if obj.monograph:
             return str(obj.monograph)
         return None
