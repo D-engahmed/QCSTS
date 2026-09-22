@@ -5,6 +5,8 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 from core.views import TenantExemptAPIView
 
 from .models import Invoice, PaymentEvent, Subscription
@@ -22,6 +24,7 @@ class PaymobTransactionWebhookView(TenantExemptAPIView):
     permission_classes = [AllowAny]
 
     @transaction.atomic
+    @extend_schema(operation_id="paymob_transaction_webhook", request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         obj = request.data.get("obj") if isinstance(request.data, dict) else None
         if not isinstance(obj, dict):
