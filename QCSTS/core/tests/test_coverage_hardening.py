@@ -375,7 +375,7 @@ class TestReporting:
         client.force_authenticate(user=user)
         response = client.get("/api/v1/reports/export.csv?resource=unknown")
         assert response.status_code == 400
-        assert "Unsupported resource" in response.data["detail"]
+        assert "Unsupported resource" in response.data["errors"]["resource"][0]
 
 
 @pytest.mark.django_db
