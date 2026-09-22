@@ -98,8 +98,7 @@ def test_deviation_can_link_to_oos(db, org):
 
 
 def test_quality_links_reject_cross_tenant_reference(db):
-    Org = Organization
-    org_a = Org.objects.create(name="A", slug="quality-a", country="EG")
+    org_a = Organization.objects.create(name="A", slug="quality-a", country="EG")
     org_b = Org.objects.create(name="B", slug="quality-b", country="EG")
     deviation = Deviation.objects.create(
         organization=org_a,
