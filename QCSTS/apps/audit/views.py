@@ -1,5 +1,6 @@
 from core.views import TenantScopedAPIView
 from rest_framework import status
+from drf_spectacular.utils import extend_schema
 
 from apps.audit.models import AuditLog
 from apps.audit.serializers import AuditLogSerializer
@@ -24,6 +25,7 @@ class AuditLogListView(TenantScopedAPIView):
 
     permission_classes = [IsQAManager]
 
+    @extend_schema(operation_id="audit_list")
     def get(self, request):
         queryset = self.tenant_qs(AuditLog.objects)
 
@@ -58,6 +60,7 @@ class AuditLogDetailView(TenantScopedAPIView):
 
     permission_classes = [IsQAManager]
 
+    @extend_schema(operation_id="audit_retrieve")
     def get(self, request, pk):
         try:
             log = self.tenant_qs(AuditLog.objects).get(pk=pk)
