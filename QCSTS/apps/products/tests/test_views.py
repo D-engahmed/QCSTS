@@ -11,7 +11,8 @@ from apps.accounts.tests.factories import (
     AdminFactory,
     QAManagerFactory,
 )
-from apps.platform.models import Membership, Organization, Role
+from apps.platform.models import Organization
+from services.signature_service import SignatureService
 
 
 def auth_client(user):
@@ -77,7 +78,12 @@ class TestMonographViews:
         qa = QAManagerFactory()
         monograph = MonographFactory()
         c = auth_client(qa)
-        response = c.post(f"/api/v1/products/monographs/{monograph.id}/approve/")
+        token = SignatureService.issue(qa)
+        response = c.post(
+            f"/api/v1/products/monographs/{monograph.id}/approve/",
+            {"reason": "Approved after QA review."},
+            HTTP_X_SIGNATURE_TOKEN=token,
+        )
         assert response.status_code == 200
         assert response.data["data"]["status"] == "approved"
 
