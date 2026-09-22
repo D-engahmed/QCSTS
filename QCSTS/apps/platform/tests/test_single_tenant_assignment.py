@@ -1,5 +1,5 @@
 import pytest
-from django.db import IntegrityError, transaction
+from django.core.exceptions import ValidationError
 
 from apps.accounts.tests.factories import UserFactory
 from apps.platform.models import Membership, Organization, Role
@@ -12,9 +12,8 @@ def test_user_can_have_only_one_active_tenant_membership():
     second_org = Organization.objects.create(name="Second", slug="second", country="EG")
     second_role = Role.objects.create(organization=second_org, name="analyst")
 
-    with pytest.raises(IntegrityError):
-        with transaction.atomic():
-            Membership.objects.create(
+    with pytest.raises(ValidationError, match="Constraint|one active membership"):
+        Membership.objects.create(
                 user=user,
                 organization=second_org,
                 role=second_role,
