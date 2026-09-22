@@ -111,7 +111,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
-          path: coverage.xml
+          path: QCSTS/coverage.xml
           if-no-files-found: error
 
   frontend:
