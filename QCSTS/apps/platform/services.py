@@ -60,10 +60,18 @@ class TenantContextService:
     @staticmethod
     def _resolve_site(membership, requested_site_id):
         if not requested_site_id:
-            return membership.default_site
-        site = Site.objects.filter(id=requested_site_id, organization=membership.organization).first()
+            site = membership.default_site
+            if site and site.status != Site.Status.ACTIVE:
+                return None
+            return site
+
+        site = Site.objects.filter(
+            id=requested_site_id,
+            organization=membership.organization,
+            status=Site.Status.ACTIVE,
+        ).first()
         if not site:
-            raise NotFound("Site not found in the active organization.")
+            raise NotFound("Active site not found in the active organization.")
         if not (
             membership.default_site_id == site.id
             or membership.sites.filter(id=site.id).exists()
