@@ -87,6 +87,7 @@ class PasswordResetConfirmView(PublicAPIView):
         user.failed_login_attempts = 0
         user.locked_until = None
         user.save(update_fields=["password", "password_changed_at", "failed_login_attempts", "locked_until"])
+        revoke_user_sessions(user)
         AuditService.log(performed_by=user, action="PASSWORD_RESET", model_name="CustomUser", object_id=user.id, object_repr=str(user))
         return success_response(message="Password reset successfully. You can now sign in.")
 
