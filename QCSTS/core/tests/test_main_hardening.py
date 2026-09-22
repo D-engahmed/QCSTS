@@ -307,6 +307,34 @@ def test_cross_tenant_protocol_product_reference_is_rejected_before_create():
 
 
 @pytest.mark.django_db
+def test_invoice_rejects_cross_organization_subscription():
+    from decimal import Decimal
+    from django.core.exceptions import ValidationError
+    from apps.billing.models import Invoice, Plan, Subscription
+
+    organization_a, user_a, _ = make_org_user("invoice-a")
+    organization_b, _, _ = make_org_user("invoice-b")
+
+    plan = Plan.objects.get(code=Plan.Code.ESSENTIAL)
+    subscription_b = Subscription.objects.create(
+        organization=organization_b,
+        plan=plan,
+        status=Subscription.Status.TRIALING,
+        interval=Subscription.Interval.MONTH,
+    )
+
+    with pytest.raises(ValidationError, match="Invoice subscription"):
+        Invoice.objects.create(
+            organization=organization_a,
+            subscription=subscription_b,
+            number="INV-CROSS-ORG-001",
+            currency="USD",
+            subtotal=Decimal("100.00"),
+            total=Decimal("100.00"),
+        )
+
+
+@pytest.mark.django_db
 def test_password_change_revokes_existing_jwt_sessions():
     from apps.accounts.views import ChangePasswordView
 
