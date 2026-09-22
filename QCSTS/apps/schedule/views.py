@@ -1,5 +1,6 @@
 from core.views import TenantScopedAPIView
 from rest_framework import status
+from drf_spectacular.utils import extend_schema
 from django.utils import timezone
 
 from apps.schedule.models import TestPoint
@@ -23,6 +24,7 @@ class TestPointListView(TenantScopedAPIView):
 
     permission_classes = [IsAnalystOrAbove]
 
+    @extend_schema(operation_id="testpoint_list")
     def get(self, request):
         queryset = self.tenant_qs(TestPoint.objects.select_related("batch", "batch__product"))
 
@@ -54,6 +56,7 @@ class TestPointDetailView(TenantScopedAPIView):
 
     permission_classes = [IsAnalystOrAbove]
 
+    @extend_schema(operation_id="testpoint_retrieve")
     def get(self, request, pk):
         try:
             tp = self.tenant_qs(TestPoint.objects.select_related("batch", "batch__product")).get(pk=pk)
