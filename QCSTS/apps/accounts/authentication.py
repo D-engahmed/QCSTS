@@ -1,4 +1,4 @@
-from django.utils import timezone
+from datetime import datetime, timezone
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
@@ -20,7 +20,7 @@ class PasswordChangeAwareJWTAuthentication(JWTAuthentication):
         if issued_at is None:
             raise AuthenticationFailed("Token is missing its issued-at timestamp.")
 
-        issued_dt = timezone.datetime.fromtimestamp(issued_at, tz=timezone.utc)
+        issued_dt = datetime.fromtimestamp(issued_at, tz=timezone.utc)
         if issued_dt < changed_at:
             raise AuthenticationFailed("Token was issued before the last password change.")
 
