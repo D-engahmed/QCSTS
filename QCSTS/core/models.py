@@ -103,6 +103,26 @@ class BaseModel(models.Model):
     def __repr__(self):
         return f"<{self.__class__.__name__} id={self.id}>"
 
+    def assert_user_in_organization(self, user, field_name="user", require_active=True):
+        """
+        Ensure an actor-style user reference belongs to this record's organization.
+
+        CustomUser deliberately has no organization_id; authority lives on
+        Membership. This helper closes the gap where generic organization
+        equality checks cannot validate a user FK.
+        """
+        if user is None or self.organization_id is None:
+            return
+
+        memberships = user.memberships.filter(organization_id=self.organization_id)
+        if require_active:
+            memberships = memberships.filter(is_active=True)
+
+        if not memberships.exists():
+            raise ValidationError(
+                {field_name: f"{field_name} must belong to this organization."}
+            )
+
     def assert_same_organization(self, **related):
         """
         Defense-in-depth guard against a cross-organization foreign key.
