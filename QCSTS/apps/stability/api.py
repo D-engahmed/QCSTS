@@ -140,14 +140,14 @@ class StorageConditionSerializer(TenantScopedModelSerializer):
     class Meta:
         model = StorageCondition
         fields = "__all__"
-        read_only_fields = ["id", "organization", "created_at", "updated_at"]
+        read_only_fields = ["id", "organization", "created_at", "updated_at", "status"]
 
 
 class ProtocolSerializer(TenantScopedModelSerializer):
     class Meta:
         model = Protocol
         fields = "__all__"
-        read_only_fields = ["id", "organization", "created_at", "updated_at"]
+        read_only_fields = ["id", "organization", "created_at", "updated_at", "status"]
 
 
 class ProtocolVersionSerializer(TenantScopedModelSerializer):
@@ -161,7 +161,7 @@ class SpecificationSerializer(TenantScopedModelSerializer):
     class Meta:
         model = Specification
         fields = "__all__"
-        read_only_fields = ["id", "organization", "created_at", "updated_at"]
+        read_only_fields = ["id", "organization", "created_at", "updated_at", "status"]
 
 
 class SpecificationVersionSerializer(TenantScopedModelSerializer):
