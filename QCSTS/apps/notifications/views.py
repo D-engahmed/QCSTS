@@ -11,6 +11,7 @@ from .serializers import NotificationSerializer
 
 
 class NotificationViewSet(TenantScopedModelViewSet):
+    permission_classes = [IsAnalystOrAbove]
     serializer_class = NotificationSerializer
     queryset = Notification.objects.select_related("user")
 
