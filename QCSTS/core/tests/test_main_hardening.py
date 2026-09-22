@@ -306,6 +306,53 @@ def test_batch_model_enforces_date_and_quantity_invariants():
 
 
 @pytest.mark.django_db
+def test_soft_delete_rolls_back_audit_when_state_save_fails(monkeypatch):
+    from apps.audit.models import AuditLog
+    from apps.quality.models import Deviation
+    from apps.accounts.tests.factories import UserFactory
+
+    user = UserFactory()
+    organization = user.memberships.select_related("organization").get().organization
+    deviation = Deviation.objects.create(
+        organization=organization,
+        created_by=user,
+        owner=user,
+        reference="DELETE-ATOMIC-001",
+        title="Atomic delete",
+        description="Audit and retirement must commit together.",
+        status="open",
+    )
+
+    before = AuditLog.objects.filter(
+        organization=organization,
+        object_id=deviation.id,
+        action="DELETE",
+    ).count()
+
+    original_save = deviation.save
+
+    def fail_save(*args, **kwargs):
+        raise RuntimeError("simulated save failure")
+
+    monkeypatch.setattr(deviation, "save", fail_save)
+
+    with pytest.raises(RuntimeError, match="simulated save failure"):
+        deviation.soft_delete(deleted_by=user)
+
+    deviation.refresh_from_db()
+    assert deviation.is_active is True
+    assert (
+        AuditLog.objects.filter(
+            organization=organization,
+            object_id=deviation.id,
+            action="DELETE",
+        ).count()
+        == before
+    )
+
+
+
+@pytest.mark.django_db
 def test_tenant_domain_delete_soft_deactivates_record():
     user = UserFactory()
     organization = user.memberships.select_related("organization").get().organization
