@@ -16,12 +16,22 @@ class PasswordChangeAwareJWTAuthentication(JWTAuthentication):
         if changed_at is None:
             return user, token
 
+        token_pwd_changed_at = token.get("pwd_changed_at")
+        if token_pwd_changed_at is not None:
+            if token_pwd_changed_at != changed_at.isoformat():
+                raise AuthenticationFailed("Token was issued before the last password change.")
+            return user, token
+
+        # Legacy tokens created before the password-version claim existed use
+        # SimpleJWT's integer-second iat. Keep a one-second compatibility
+        # window rather than invalidating a freshly issued token because the
+        # database timestamp contains sub-second precision.
         issued_at = token.get("iat")
         if issued_at is None:
             raise AuthenticationFailed("Token is missing its issued-at timestamp.")
 
-        issued_dt = datetime.fromtimestamp(issued_at, tz=timezone.utc)
-        if issued_dt < changed_at:
+        changed_epoch = int(changed_at.timestamp())
+        if issued_at < changed_epoch:
             raise AuthenticationFailed("Token was issued before the last password change.")
 
         return user, token
