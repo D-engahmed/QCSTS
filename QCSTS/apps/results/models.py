@@ -154,8 +154,6 @@ class ResultReview(BaseModel):
             self.organization = self.result.organization
 
         self.assert_same_organization(result=self.result)
-        if self.reviewed_by_id:
-            self.assert_user_in_organization(self.reviewed_by, "reviewed_by")
 
         super().save(*args, **kwargs)
 
