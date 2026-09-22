@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework.exceptions import PermissionDenied
 
 from apps.billing.models import Invoice, PaymentEvent, Plan, Subscription
 from apps.billing.paymob import calculate_transaction_hmac
@@ -151,8 +152,6 @@ class PaymobWebhookAPITests(TestCase):
 
     def test_payment_event_cannot_cross_organizations(self):
         from apps.billing.services import BillingService
-        from django.core.exceptions import PermissionDenied
-
         other = Organization.objects.create(
             name="Other Paymob Pharma",
             slug="other-paymob-pharma",
