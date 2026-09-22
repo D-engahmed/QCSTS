@@ -3,6 +3,7 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
+/** Renders the theme switch using the saved preference or system color scheme. */
 export default function ThemeToggle() {
   const [dark, setDark] = useState(false);
 
@@ -14,6 +15,7 @@ export default function ThemeToggle() {
     setDark(enabled);
   }, []);
 
+  /** Switches the document theme and saves the new preference. */
   function toggle() {
     const next = !dark;
     document.documentElement.classList.toggle("dark", next);

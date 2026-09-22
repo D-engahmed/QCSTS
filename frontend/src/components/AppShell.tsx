@@ -17,6 +17,7 @@ const groups:Array<[string,NavItem[]]>=[
 ["Administration",[["Organization","/app/organization",Building2],["Users / Members","/app/users",Users],["Billing","/app/billing",WalletCards],["Security settings","/app/settings",Settings]]],
 ];
 
+/** Renders public content or the authenticated workspace navigation and header. */
 export default function AppShell({children}:{children:React.ReactNode}){
  const pathname=usePathname(); const [open,setOpen]=useState(false); const {user,membership,organization,site,logout,loading}=useAuth();
  if(pathname==="/"||pathname==="/login"||pathname==="/register")return <>{children}</>;

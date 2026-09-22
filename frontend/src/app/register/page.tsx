@@ -8,10 +8,12 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const initialForm={organization_name:"",slug:"",country:"EG",timezone:"Africa/Cairo",currency:"EGP",site_name:"Primary Site",site_address:"",full_name:"",email:"",password:"",confirm_password:""};
 
+/** Renders the organization and owner onboarding form. */
 export default function Register(){
   const {user,register}=useAuth(); const [form,setForm]=useState(initialForm); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
   useEffect(()=>{if(user) window.location.replace("/app")},[user]);
   const update=(key:keyof typeof initialForm,value:string)=>{setForm(c=>({...c,[key]:value}));setError("")};
+  /** Validates the owner password and creates the organization workspace. */
   async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setError("");if(form.password!==form.confirm_password){setError("Passwords do not match.");return}if(form.password.length<12){setError("Password must be at least 12 characters.");return}setBusy(true);try{await register({organization_name:form.organization_name.trim(),slug:form.slug.trim(),country:form.country.trim().toUpperCase(),timezone:form.timezone.trim(),currency:form.currency.trim().toUpperCase(),site_name:form.site_name.trim(),site_address:form.site_address.trim(),full_name:form.full_name.trim(),email:form.email.trim().toLowerCase(),password:form.password});window.location.assign("/app")}catch(value){setError(value instanceof Error?value.message:"Unable to create the organization.")}finally{setBusy(false)}}
   return <main className="auth-page">
     <div className="auth-toolbar"><Link className="brand" href="/"><div className="brand-mark">Q</div><div><strong>QCSTS</strong><small>Quality & Stability</small></div></Link><ThemeToggle/></div>

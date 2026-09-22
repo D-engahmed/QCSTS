@@ -9,6 +9,7 @@ const steps = [
   ["03", "Review and preserve evidence", "Approvals, signatures, quality events and audit history remain traceable."],
 ];
 
+/** Renders an interactive walkthrough of the controlled quality workflow. */
 export default function ProductExplainer() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);

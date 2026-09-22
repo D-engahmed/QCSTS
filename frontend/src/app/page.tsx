@@ -12,6 +12,7 @@ const features = [
 
 const workflow = ["Organization", "Product", "Study", "Timepoint", "Result", "Review"];
 
+/** Renders the public landing page with product features and onboarding links. */
 export default function Landing() {
   return (
     <main className="landing">

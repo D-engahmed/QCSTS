@@ -6,6 +6,7 @@ import { ArrowRight, ShieldCheck, Building2 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 
+/** Renders the sign-in form and redirects authenticated users to their workspace. */
 export default function Login() {
   const { user, login } = useAuth();
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
@@ -14,6 +15,7 @@ export default function Login() {
 
   useEffect(() => { if (user) window.location.replace("/app"); }, [user]);
 
+  /** Signs in with the entered credentials and prompts for an MFA code if required. */
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
     try { await login(email.trim(), password, needsOtp ? otp : undefined); window.location.assign("/app"); }
