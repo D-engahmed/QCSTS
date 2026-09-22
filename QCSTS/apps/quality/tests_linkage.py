@@ -26,6 +26,39 @@ def test_deviation_can_link_to_oos(db, org):
     pv = __import__("apps.stability.models", fromlist=["ProtocolVersion"]).ProtocolVersion.objects.create(
         organization=org, protocol=protocol, version="1.0"
     )
+    study = __import__("apps.stability.models", fromlist=["StabilityStudy"]).StabilityStudy.objects.create(
+        organization=org,
+        code="S-1",
+        name="Study",
+        site=__import__("apps.platform.models", fromlist=["Site"]).Site.objects.create(
+            organization=org, name="Cairo QC", country="EG"
+        ),
+        product=product,
+        protocol_version=pv,
+        study_type="long_term",
+    )
+    batch = Batch.objects.create(
+        organization=org,
+        product=product,
+        batch_number="QUALITY-LINK-001",
+        mfg_date="2025-12-01",
+        expiry_date="2027-12-01",
+        incubation_date="2025-12-01",
+        study_type="long_term",
+        status="active",
+        shelf="Q",
+        rack="1",
+        position="1",
+        qty_placed=10,
+        qty_remaining=10,
+    )
+    schedule_tp = TestPoint.objects.create(
+        organization=org,
+        batch=batch,
+        month=0,
+        scheduled_date="2026-01-01",
+        status="pending",
+    )
     mt = __import__("apps.products.models", fromlist=["Monograph"]).Monograph.objects.create(
         organization=org, name="USP Example", version="1", effective_date="2026-01-01"
     )
