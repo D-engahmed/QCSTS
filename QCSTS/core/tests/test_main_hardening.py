@@ -1,4 +1,5 @@
 import pytest
+from datetime import timedelta
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
@@ -56,7 +57,7 @@ def make_org_user(slug, role_name="admin"):
             "plan": plan,
             "interval": Subscription.Interval.MONTH,
             "provider": "test",
-            "trial_ends_at": now + timezone.timedelta(days=30),
+            "trial_ends_at": now + timedelta(days=30),
             "current_period_start": now,
             "current_period_end": now + timezone.timedelta(days=30),
         },
