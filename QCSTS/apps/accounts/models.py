@@ -1,15 +1,16 @@
 import uuid
 from datetime import timedelta
 
-from django.db import models
-from django.utils import timezone
 import base64
 import hashlib
 import hmac
 import struct
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django.conf import settings
 from cryptography.fernet import Fernet
+from django.conf import settings
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db import models
+from django.utils import timezone
+
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -28,19 +29,20 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
 
+
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = [
         ("admin", "Admin"),
         ("qa_manager", "QA Manager"),
         ("supervisor", "Supervisor"),
         ("analyst", "Analyst"),
-        ("system", "System"),   # New System Role
+        ("system", "System"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=255)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="analyst") # Fixed String
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="analyst")
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     failed_login_attempts = models.IntegerField(default=0)
@@ -59,7 +61,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["full_name"]
-
     objects = CustomUserManager()
 
     class Meta:
@@ -69,11 +70,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f"{self.full_name} ({self.email})"
 
-    # Repeated failures lock the account for a WINDOW. They must not set
-    # is_active=False: that flag is the soft-delete marker, so a permanent
-    # lockout made a locked account indistinguishable from a deleted one and
-    # handed anyone who knew an email address a free, irreversible denial of
-    # service. A self-expiring window stops brute force without that.
     LOCKOUT_THRESHOLD = 5
     LOCKOUT_MINUTES = 15
 
@@ -91,21 +87,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         self.failed_login_attempts = 0
         self.locked_until = None
         self.save(update_fields=["failed_login_attempts", "locked_until"])
-
-
-class EmailVerificationToken(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="email_verification_tokens")
-    token_hash = models.CharField(max_length=64, unique=True)
-    expires_at = models.DateTimeField()
-    used_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "accounts_email_verification_token"
-        indexes = [
-            models.Index(fields=["user", "expires_at"], name="accounts_em_user_id_6c50a7_idx"),
-        ]
 
     def set_mfa_secret(self, secret):
         key = getattr(settings, "MFA_ENCRYPTION_KEY", "")
@@ -131,8 +112,28 @@ class EmailVerificationToken(models.Model):
             moving = counter + offset
             digest = hmac.new(key, struct.pack(">Q", moving), hashlib.sha1).digest()
             index = digest[-1] & 0x0F
-            binary = ((digest[index] & 0x7F) << 24) | (digest[index + 1] << 16) | (digest[index + 2] << 8) | digest[index + 3]
+            binary = (
+                ((digest[index] & 0x7F) << 24)
+                | (digest[index + 1] << 16)
+                | (digest[index + 2] << 8)
+                | digest[index + 3]
+            )
             expected = f"{binary % 1000000:06d}"
             if hmac.compare_digest(expected, code):
                 return True
         return False
+
+
+class EmailVerificationToken(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="email_verification_tokens")
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "accounts_email_verification_token"
+        indexes = [
+            models.Index(fields=["user", "expires_at"], name="accounts_em_user_id_6c50a7_idx"),
+        ]
