@@ -38,6 +38,9 @@ class PaymobTransactionWebhookView(TenantExemptAPIView):
         order = obj.get("order")
         if not isinstance(order, dict):
             return Response({"detail": "Invalid Paymob order payload."}, status=400)
+        source_data = obj.get("source_data")
+        if source_data is not None and not isinstance(source_data, dict):
+            return Response({"detail": "Invalid Paymob source_data payload."}, status=400)
         order_id = str(order.get("id", "")).strip()
         if not transaction_id or not order_id:
             return Response({"detail": "Missing transaction/order identifier."}, status=400)
