@@ -35,7 +35,9 @@ class PaymobTransactionWebhookView(TenantExemptAPIView):
             return Response({"detail": "Invalid callback signature."}, status=403)
 
         transaction_id = str(obj.get("id", "")).strip()
-        order = obj.get("order") or {}
+        order = obj.get("order")
+        if not isinstance(order, dict):
+            return Response({"detail": "Invalid Paymob order payload."}, status=400)
         order_id = str(order.get("id", "")).strip()
         if not transaction_id or not order_id:
             return Response({"detail": "Missing transaction/order identifier."}, status=400)
@@ -63,7 +65,10 @@ class PaymobTransactionWebhookView(TenantExemptAPIView):
         if not created and event.processed:
             return Response({"status": "already_processed"}, status=200)
 
-        amount_cents = int(obj.get("amount_cents") or 0)
+        try:
+            amount_cents = int(obj.get("amount_cents") or 0)
+        except (TypeError, ValueError):
+            return Response({"detail": "Invalid amount_cents value."}, status=400)
         expected_cents = int((invoice.total * Decimal("100")).quantize(Decimal("1")))
         if amount_cents != expected_cents:
             return Response({"detail": "Payment amount does not match invoice."}, status=409)
