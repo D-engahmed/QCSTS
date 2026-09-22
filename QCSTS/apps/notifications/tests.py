@@ -2,6 +2,7 @@ import pytest
 from django.core.exceptions import ValidationError
 
 from apps.accounts.models import CustomUser
+from apps.accounts.tests.factories import UserFactory
 from apps.notifications.models import Notification
 from apps.platform.models import Organization
 
@@ -9,12 +10,7 @@ from apps.platform.models import Organization
 @pytest.mark.django_db
 def test_notification_must_share_tenant_with_user():
     org_b = Organization.objects.create(name="B Pharma", slug="b-pharma-notif", country="EG")
-    user = CustomUser.objects.create_user(
-        email="notif-user@a.test",
-        password="Strong-password-123",
-        full_name="Notification User",
-        role="analyst",
-    )
+    user = UserFactory()
     record = Notification(
         organization=org_b,
         user=user,
@@ -27,13 +23,8 @@ def test_notification_must_share_tenant_with_user():
 
 @pytest.mark.django_db
 def test_notification_can_be_created_for_same_tenant_user():
-    org = Organization.objects.create(name="Tenant Pharma", slug="tenant-notif", country="EG")
-    user = CustomUser.objects.create_user(
-        email="notif-user@tenant.test",
-        password="Strong-password-123",
-        full_name="Notification User",
-        role="analyst",
-    )
+    user = UserFactory()
+    org = user.memberships.select_related("organization").get().organization
     record = Notification.objects.create(
         organization=org,
         user=user,
