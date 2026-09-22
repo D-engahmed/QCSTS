@@ -4,7 +4,7 @@ from django.test import TestCase
 from apps.accounts.models import CustomUser, EmailVerificationToken
 from apps.accounts.recovery import issue_email_verification
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 
 class RecoveryFlowTests(TestCase):
@@ -72,6 +72,39 @@ class RecoveryFlowTests(TestCase):
             format="json",
         )
         self.assertEqual(reused.status_code, 400)
+
+    def test_password_reset_revokes_existing_refresh_token(self):
+        refresh = RefreshToken.for_user(self.user)
+
+        self.client.post(
+            "/api/v1/auth/password-reset/",
+            {"email": self.user.email},
+            format="json",
+        )
+        message = mail.outbox[-1].body
+        import re
+
+        match = re.search(r"reset-password\?uid=([^&]+)&token=(.+)", message)
+        self.assertIsNotNone(match)
+        uid, token = match.group(1), match.group(2)
+
+        response = self.client.post(
+            "/api/v1/auth/password-reset/confirm/",
+            {
+                "uid": uid,
+                "token": token,
+                "new_password": "Replacement-password-456",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        refresh_response = self.client.post(
+            "/api/v1/auth/token/refresh/",
+            {"refresh": str(refresh)},
+            format="json",
+        )
+        self.assertEqual(refresh_response.status_code, 401)
 
     def test_email_verification_token_is_single_use(self):
         issue_email_verification(self.user)
