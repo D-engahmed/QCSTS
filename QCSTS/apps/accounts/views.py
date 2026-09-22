@@ -21,7 +21,7 @@ from apps.accounts.serializers import (
 from apps.platform.models import Membership, Organization, Permission, Role, Site
 from apps.billing.models import Plan, Subscription
 from apps.accounts.recovery import issue_email_verification
-from apps.accounts.security import revoke_user_sessions
+from apps.accounts.security import revoke_user_sessions, issue_tokens
 from core.permissions import IsAdmin
 from core.responses import error_response, success_response
 from core.views import PublicAPIView, TenantExemptAPIView, TenantScopedAPIView
@@ -64,7 +64,7 @@ class LoginView(PublicAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
 
-        refresh = RefreshToken.for_user(user)
+        refresh = issue_tokens(user)
         ip = request.META.get("REMOTE_ADDR")
         user.last_login_ip = ip
         user.save(update_fields=["last_login_ip"])
