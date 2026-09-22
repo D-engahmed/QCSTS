@@ -2,6 +2,8 @@ import pytest
 from django.core.exceptions import ValidationError
 
 from apps.platform.models import Organization
+from apps.batches.models import Batch
+from apps.schedule.models import TestPoint
 from apps.quality.models import CAPA, Deviation
 
 
@@ -32,6 +34,28 @@ def test_deviation_can_link_to_oos(db, org):
     tp = __import__("apps.stability.models", fromlist=["StudyTimepoint"]).StudyTimepoint.objects.create(
         organization=org, study=study, code="T0", nominal_days=0, target_date="2026-01-01"
     )
+    batch = Batch.objects.create(
+        organization=org,
+        product=product,
+        batch_number="QUALITY-LINK-001",
+        mfg_date="2025-12-01",
+        expiry_date="2027-12-01",
+        incubation_date="2025-12-01",
+        study_type="long_term",
+        status="active",
+        shelf="Q",
+        rack="1",
+        position="1",
+        qty_placed=10,
+        qty_remaining=10,
+    )
+    schedule_tp = TestPoint.objects.create(
+        organization=org,
+        batch=batch,
+        month=0,
+        scheduled_date="2026-01-01",
+        status="pending",
+    )
     mt = __import__("apps.products.models", fromlist=["Monograph"]).Monograph.objects.create(
         organization=org, name="USP Example", version="1", effective_date="2026-01-01"
     )
@@ -39,7 +63,7 @@ def test_deviation_can_link_to_oos(db, org):
         organization=org, monograph=mt, name="Assay", method="HPLC", specification="95-105", unit="%", sequence=1
     )
     result = __import__("apps.results.models", fromlist=["TestResult"]).TestResult.objects.create(
-        organization=org, test_point=tp, monograph_test=mtest, value="110", unit="%", specification_snapshot="95-105", analyst=__import__("apps.accounts.models", fromlist=["CustomUser"]).CustomUser.objects.create_user(
+        organization=org, test_point=schedule_tp, monograph_test=mtest, value="110", unit="%", specification_snapshot="95-105", analyst=__import__("apps.accounts.models", fromlist=["CustomUser"]).CustomUser.objects.create_user(
             email="quality@acme.test", password="password-123", full_name="Quality Analyst", role="analyst"
         ),
     )

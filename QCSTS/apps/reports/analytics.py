@@ -36,6 +36,8 @@ class AnalyticsView(TenantScopedAPIView):
             .values("scheduled_month", "status")
             .annotate(count=Count("id"))
             .order_by("scheduled_month", "status")
+
+
         )
 
         quality_models = [

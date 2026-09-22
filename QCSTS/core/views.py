@@ -6,6 +6,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.billing.models import EntitlementService
 from apps.platform.services import TenantContextService
+from apps.platform.models import Organization, Site
 
 
 class TenantExemptAPIView(APIView):
@@ -41,12 +42,18 @@ class TenantScopedAPIView(APIView):
         return super().get_permissions()
 
     def tenant_qs(self, queryset):
+        if queryset.model is Organization:
+            return queryset.filter(pk=self.request.organization.pk)
         return queryset.filter(organization=self.request.organization)
 
     def site_qs(self, queryset, field="site"):
         queryset = self.tenant_qs(queryset)
         site = getattr(self.request, "site", None)
-        return queryset if site is None else queryset.filter(**{field: site})
+        if site is None:
+            return queryset
+        if queryset.model is Site:
+            return queryset.filter(pk=site.pk)
+        return queryset.filter(**{field: site})
 
     def tenant_create_kwargs(self, **extra):
         kwargs = {"organization": self.request.organization, "created_by": self.request.user}

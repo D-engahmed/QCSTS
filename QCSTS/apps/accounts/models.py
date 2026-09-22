@@ -107,9 +107,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         timestamp = timezone.now().timestamp() if timestamp is None else timestamp
         counter = int(timestamp // 30)
         padding = "=" * ((8 - len(secret) % 8) % 8)
-        key = base64.b32decode(secret.upper() + padding)
+        try:
+            key = base64.b32decode(secret.upper() + padding)
+        except (ValueError, base64.binascii.Error):
+            return False
         for offset in (-1, 0, 1):
             moving = counter + offset
+            if moving < 0:
+                continue
             digest = hmac.new(key, struct.pack(">Q", moving), hashlib.sha1).digest()
             index = digest[-1] & 0x0F
             binary = (

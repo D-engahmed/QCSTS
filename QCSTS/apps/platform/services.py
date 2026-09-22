@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
-from apps.platform.models import Membership, Site
+from apps.platform.models import Membership, Site, Organization
 
 
 @dataclass(frozen=True)
@@ -53,6 +53,8 @@ class TenantContextService:
     @classmethod
     def scope_queryset(cls, request, queryset):
         cls.resolve(request)
+        if queryset.model is Organization:
+            return queryset.filter(pk=request.organization.pk)
         return queryset.filter(organization=request.organization)
 
     @staticmethod

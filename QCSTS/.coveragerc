@@ -12,6 +12,7 @@ omit =
     */tests.py
     */test_*.py
     */tests_*.py
+    */tests.py
     */conftest.py
     */admin.py
     */apps.py
