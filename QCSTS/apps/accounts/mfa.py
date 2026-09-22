@@ -17,6 +17,7 @@ def new_totp_secret():
 
 
 class MFAStatusView(TenantExemptAPIView):
+    """MFA status is user-account scoped, so it intentionally bypasses organization tenancy."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
