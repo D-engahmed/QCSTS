@@ -25,6 +25,7 @@ remembered.
 """
 
 from rest_framework import serializers
+from django.core.exceptions import FieldDoesNotExist
 
 
 class TenantScopedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
@@ -72,25 +73,35 @@ class TenantScopedModelSerializer(serializers.ModelSerializer):
     than silently validating against every tenant's data.
     """
 
-    # Models that carry `organization` and must never be referenced across
-    # tenants. Extend this set as new tenant-owned models are added — the
-    # structural test in core/tests/test_serializer_tenant_scoping.py fails
-    # the build if a new organization-owned model's FK field is left off it.
-    TENANT_OWNED_MODELS = {
-        "Batch", "Product", "Monograph", "MonographTest",
-        "TestPoint", "TestResult", "SamplePull",
-    }
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # These fields are always server-owned on tenant-scoped writes.
+        # Clients may submit a foreign ID or actor identity, but neither can
+        # change tenant ownership or authorship.
+        for name in ("organization", "created_by"):
+            field = self.fields.get(name)
+            if field is not None:
+                field.read_only = True
+
         for name, field in list(self.fields.items()):
             if type(field) is not serializers.PrimaryKeyRelatedField:
-                continue  # already customised (e.g. explicitly scoped) — leave it
+                continue
             if field.read_only or field.queryset is None:
                 continue
-            target_model = field.queryset.model.__name__
-            if target_model not in self.TENANT_OWNED_MODELS:
+
+            target_model = field.queryset.model
+            try:
+                target_model._meta.get_field("organization")
+            except FieldDoesNotExist:
                 continue
+
+            self.fields[name] = TenantScopedPrimaryKeyRelatedField(
+                queryset=field.queryset,
+                required=field.required,
+                allow_null=field.allow_null,
+                source=field.source if field.source != name else None,
+            )
             # Assigning into self.fields (a BindingDict) calls .bind() on the
             # new field automatically, which is where it picks up .context via
             # its parent chain — DRF fields never take context in __init__.

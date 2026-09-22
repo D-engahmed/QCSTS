@@ -20,9 +20,8 @@ urlpatterns = [
     path("api/v1/quality/", include("apps.quality.urls")),
     path("api/v1/compliance/", include("apps.compliance.urls")),
     path("api/v1/notifications/", include("apps.notifications.urls")),
-    path("api/schema", SpectacularAPIView.as_view(), name="schema-no-slash"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    # Support both canonical trailing-slash URLs and the exact /api/docs path.
-    path("api/docs", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui-no-slash"),
+    path("api/schema", SpectacularAPIView.as_view(), name="schema-no-slash"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/docs", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui-no-slash"),
 ]

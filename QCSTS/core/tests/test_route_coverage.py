@@ -60,7 +60,7 @@ def test_every_route_declares_tenant_posture(route, cls):
 
 @pytest.mark.parametrize("route,cls", list(_api_routes()), ids=lambda v: str(v))
 def test_every_tenant_route_declares_action_authorization(route, cls):
-    if not issubclass(cls, (TenantScopedAPIView, TenantScopedViewSet)):
+    if not issubclass(cls, (TenantScopedAPIView, TenantScopedViewSet, TenantScopedModelViewSet)):
         return
 
     declared = cls.__dict__.get("permission_classes")
@@ -80,3 +80,18 @@ def test_exempt_views_document_their_reason():
             assert (cls.__doc__ or "").strip(), (
                 f"{cls.__name__} opts out of tenant scoping but gives no reason."
             )
+
+
+def test_every_tenant_route_base_is_explicitly_scoped():
+    for route, cls in _api_routes():
+        if cls.__module__.startswith("apps.") and "api" in route:
+            assert issubclass(
+                cls,
+                (
+                    TenantScopedAPIView,
+                    TenantScopedViewSet,
+                    TenantScopedModelViewSet,
+                    TenantExemptAPIView,
+                    TenantExemptViewSet,
+                ),
+            ), f"{route} is outside the explicit tenant posture hierarchy."

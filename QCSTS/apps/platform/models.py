@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
 
 
 class Organization(models.Model):
@@ -124,8 +126,30 @@ class Membership(models.Model):
         if self.default_site_id and self.default_site.organization_id != self.organization_id:
             raise ValidationError({"default_site": "The default site must belong to this organization."})
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def has_permission(self, code):
         return self.role.permissions.filter(code=code).exists()
 
     def __str__(self):
         return f"{self.user} @ {self.organization}"
+
+
+@receiver(m2m_changed, sender=Membership.sites.through)
+def validate_membership_sites(sender, instance, action, pk_set, **kwargs):
+    """Prevent assigning a membership to a site owned by another organization."""
+    if action != "pre_add" or not pk_set or instance.organization_id is None:
+        return
+    valid_site_ids = set(
+        Site.objects.filter(
+            pk__in=pk_set,
+            organization_id=instance.organization_id,
+        ).values_list("pk", flat=True)
+    )
+    invalid_site_ids = set(pk_set) - valid_site_ids
+    if invalid_site_ids:
+        raise ValidationError(
+            {"sites": "All membership sites must belong to the membership organization."}
+        )

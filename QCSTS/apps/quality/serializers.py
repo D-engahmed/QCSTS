@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import CAPA, ChangeControl, Deviation, OOSInvestigation, OOTInvestigation
+from core.serializers import TenantScopedModelSerializer
 
 
-class TenantSerializer(serializers.ModelSerializer):
+class TenantSerializer(TenantScopedModelSerializer):
     class Meta:
         fields = "__all__"
         read_only_fields = ("organization", "status", "closed_at", "created_by", "owner")

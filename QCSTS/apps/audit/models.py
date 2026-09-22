@@ -1,4 +1,5 @@
 import uuid
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.conf import settings
 
@@ -23,6 +24,12 @@ class AuditLog(models.Model):
         ("SIGN", "Electronic Signature"),
         ("APPROVE", "Approve"),
         ("REJECT", "Reject"),
+        ("PASSWORD_CHANGED", "Password Changed"),
+        ("PASSWORD_RESET", "Password Reset"),
+        ("EMAIL_VERIFIED", "Email Verified"),
+        ("MFA_SETUP_STARTED", "MFA Setup Started"),
+        ("MFA_ENABLED", "MFA Enabled"),
+        ("MFA_DISABLED", "MFA Disabled"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -78,6 +85,14 @@ class AuditLog(models.Model):
         """
         if self.pk and AuditLog.objects.filter(pk=self.pk).exists():
             raise PermissionError("Audit log records cannot be modified.")
+        if self.organization_id and self.performed_by_id:
+            if not self.performed_by.memberships.filter(
+                organization_id=self.organization_id,
+                is_active=True,
+            ).exists():
+                raise ValidationError(
+                    {"performed_by": "The audit actor must be an active member of the audit organization."}
+                )
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from core.serializers import TenantScopedModelSerializer
 from django.db import transaction
+from drf_spectacular.utils import extend_schema_serializer
 
 from apps.batches.models import Batch
 from apps.schedule.models import TestPoint
@@ -12,6 +13,7 @@ from core.exceptions import (
 )
 
 
+@extend_schema_serializer(component_name="BatchTestPoint")
 class TestPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestPoint
@@ -47,14 +49,17 @@ class BatchSerializer(TenantScopedModelSerializer):
         ]
         read_only_fields = ["id", "status", "qty_remaining", "created_at"]
 
-    def get_product_name(self, obj):
+    def get_product_name(self, obj) -> str:
         return str(obj.product)
 
-    def get_location(self, obj):
+    def get_location(self, obj) -> str:
         return obj.get_location()
 
     def validate_batch_number(self, value):
-        if Batch.all_objects.filter(batch_number=value).exists():
+        queryset = Batch.all_objects.filter(batch_number=value)
+        if self.instance is not None:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
             raise DuplicateBatchNumber()
         return value
 

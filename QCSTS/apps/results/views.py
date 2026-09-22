@@ -3,6 +3,8 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 from core.views import TenantScopedAPIView
 from apps.results.models import TestResult, ResultReview, ResultCorrection
@@ -21,6 +23,7 @@ class VerifySignatureView(TenantScopedAPIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signature"
 
+    @extend_schema(operation_id="verify_signature", request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         password = request.data.get("password")
         user = request.user
@@ -34,6 +37,7 @@ class VerifySignatureView(TenantScopedAPIView):
 class SubmitResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
 
+    @extend_schema(operation_id="result_list", responses=TestResultSerializer(many=True))
     def get(self, request):
         queryset = self.tenant_qs(TestResult.objects.select_related("test_point", "monograph_test", "analyst"))
         test_point_id = request.query_params.get("test_point")
@@ -44,6 +48,7 @@ class SubmitResultView(TenantScopedAPIView):
             queryset = queryset.filter(test_point__batch__id=batch_id)
         return success_response(data=TestResultSerializer(queryset, many=True).data)
 
+    @extend_schema(operation_id="result_submit", request=TestResultSerializer, responses=TestResultSerializer)
     def post(self, request):
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
@@ -58,6 +63,7 @@ class SupervisorReviewResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsReviewerOrAbove]
 
     @transaction.atomic
+    @extend_schema(operation_id="result_supervisor_review", request=OpenApiTypes.OBJECT, responses=ResultReviewSerializer)
     def post(self, request, result_id):
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
@@ -96,6 +102,7 @@ class QAApproveResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsQAManager]
 
     @transaction.atomic
+    @extend_schema(operation_id="result_qa_approve", request=OpenApiTypes.OBJECT, responses=ResultReviewSerializer)
     def post(self, request, result_id):
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
@@ -152,6 +159,7 @@ class QARejectResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsQAManager]
 
     @transaction.atomic
+    @extend_schema(operation_id="result_qa_reject", request=OpenApiTypes.OBJECT, responses=ResultReviewSerializer)
     def post(self, request, result_id):
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):
@@ -192,6 +200,7 @@ class CorrectResultView(TenantScopedAPIView):
     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
 
     @transaction.atomic
+    @extend_schema(operation_id="result_correct", request=OpenApiTypes.OBJECT, responses=ResultCorrectionSerializer)
     def post(self, request, result_id):
         token = request.headers.get("X-Signature-Token")
         if not token or not SignatureService.validate(request.user, token):

@@ -23,16 +23,19 @@ def test_deviation_can_link_to_oos(db, org):
     protocol = __import__("apps.stability.models", fromlist=["Protocol"]).Protocol.objects.create(
         organization=org, code="P-1", name="Protocol", product=product, study_type="long_term"
     )
-    pv = __import__("apps.stability.models", fromlist=["ProtocolVersion"]).ProtocolVersion.objects.create(
+    protocol_version = __import__("apps.stability.models", fromlist=["ProtocolVersion"]).ProtocolVersion.objects.create(
         organization=org, protocol=protocol, version="1.0"
     )
-    study = __import__("apps.stability.models", fromlist=["StabilityStudy"]).StabilityStudy.objects.create(
-        organization=org, code="S-1", name="Study", site=__import__("apps.platform.models", fromlist=["Site"]).Site.objects.create(
+    __import__("apps.stability.models", fromlist=["StabilityStudy"]).StabilityStudy.objects.create(
+        organization=org,
+        code="S-1",
+        name="Study",
+        site=__import__("apps.platform.models", fromlist=["Site"]).Site.objects.create(
             organization=org, name="Cairo QC", country="EG"
-        ), product=product, protocol_version=pv, study_type="long_term"
-    )
-    tp = __import__("apps.stability.models", fromlist=["StudyTimepoint"]).StudyTimepoint.objects.create(
-        organization=org, study=study, code="T0", nominal_days=0, target_date="2026-01-01"
+        ),
+        product=product,
+        protocol_version=protocol_version,
+        study_type="long_term",
     )
     batch = Batch.objects.create(
         organization=org,
@@ -95,9 +98,8 @@ def test_deviation_can_link_to_oos(db, org):
 
 
 def test_quality_links_reject_cross_tenant_reference(db):
-    Org = Organization
-    org_a = Org.objects.create(name="A", slug="quality-a", country="EG")
-    org_b = Org.objects.create(name="B", slug="quality-b", country="EG")
+    org_a = Organization.objects.create(name="A", slug="quality-a", country="EG")
+    org_b = Organization.objects.create(name="B", slug="quality-b", country="EG")
     deviation = Deviation.objects.create(
         organization=org_a,
         reference="DEV-A",

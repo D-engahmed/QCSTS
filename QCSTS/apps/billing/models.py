@@ -2,6 +2,7 @@ import uuid
 from decimal import Decimal
 
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -113,6 +114,14 @@ class Invoice(models.Model):
     def __str__(self):
         return self.number
 
+    def save(self, *args, **kwargs):
+        if self.subscription_id and self.organization_id:
+            if self.subscription.organization_id != self.organization_id:
+                raise ValidationError(
+                    {"subscription": "Invoice subscription must belong to the invoice organization."}
+                )
+        super().save(*args, **kwargs)
+
 
 class PaymentEvent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -130,6 +139,15 @@ class PaymentEvent(models.Model):
         constraints = [models.UniqueConstraint(fields=["provider", "event_id"], name="unique_billing_provider_event")]
         indexes = [models.Index(fields=["organization", "processed"])]
 
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            existing = PaymentEvent.objects.filter(pk=self.pk).only("organization_id").first()
+            if existing and existing.organization_id != self.organization_id:
+                raise ValidationError(
+                    {"organization": "A payment event cannot be reassigned to another organization."}
+                )
+        super().save(*args, **kwargs)
 
 class UsageRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

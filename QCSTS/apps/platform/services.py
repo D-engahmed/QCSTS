@@ -60,10 +60,22 @@ class TenantContextService:
     @staticmethod
     def _resolve_site(membership, requested_site_id):
         if not requested_site_id:
-            return membership.default_site
-        site = Site.objects.filter(id=requested_site_id, organization=membership.organization).first()
+            site = membership.default_site
+            if (
+                site is None
+                or site.status != Site.Status.ACTIVE
+                or not membership.sites.filter(id=site.id).exists()
+            ):
+                return None
+            return site
+
+        site = Site.objects.filter(
+            id=requested_site_id,
+            organization=membership.organization,
+            status=Site.Status.ACTIVE,
+        ).first()
         if not site:
-            raise NotFound("Site not found in the active organization.")
-        if membership.sites.exists() and not membership.sites.filter(id=site.id).exists():
+            raise NotFound("Active site not found in the active organization.")
+        if not membership.sites.filter(id=site.id).exists():
             raise PermissionDenied("You do not have access to this site.")
         return site

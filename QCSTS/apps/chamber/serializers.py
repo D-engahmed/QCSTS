@@ -23,18 +23,27 @@ class SamplePullSerializer(TenantScopedModelSerializer):
         ]
         read_only_fields = ["id", "pulled_by", "pulled_at"]
 
-    def get_batch_number(self, obj):
+    def get_batch_number(self, obj) -> str:
         return obj.batch.batch_number
 
     def validate(self, data):
         batch = data.get("batch")
         qty_pulled = data.get("qty_pulled")
+        test_point = data.get("test_point")
 
-        if batch and qty_pulled:
-            if qty_pulled > batch.qty_remaining:
-                raise InsufficientQuantity(
-                    f"Cannot pull {qty_pulled}. Only {batch.qty_remaining} remaining."
-                )
+        if qty_pulled is None or qty_pulled <= 0:
+            raise serializers.ValidationError({"qty_pulled": "Pull quantity must be greater than zero."})
+
+        if batch and qty_pulled > batch.qty_remaining:
+            raise InsufficientQuantity(
+                f"Cannot pull {qty_pulled}. Only {batch.qty_remaining} remaining."
+            )
+
+        if batch and test_point and test_point.batch_id != batch.id:
+            raise serializers.ValidationError(
+                {"test_point": "The selected test point does not belong to the selected batch."}
+            )
+
         return data
 
     def create(self, validated_data):
@@ -100,7 +109,7 @@ class LocationHistorySerializer(serializers.ModelSerializer):
             "old_position",
         ]
 
-    def get_batch_number(self, obj):
+    def get_batch_number(self, obj) -> str:
         return obj.batch.batch_number
 
 
@@ -130,9 +139,11 @@ class ChangeBatchLocationSerializer(serializers.Serializer):
         # Check new location is not already occupied
         if (
             Batch.objects.filter(
+                organization=batch.organization,
                 shelf=new_shelf,
                 rack=new_rack,
                 position=new_position,
+                is_active=True,
             )
             .exclude(id=batch.id)
             .exists()

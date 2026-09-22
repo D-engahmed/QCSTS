@@ -31,8 +31,10 @@ TRANSACTION_HMAC_FIELDS = (
 
 
 def _transaction_values(obj: dict) -> list[str]:
-    order = obj.get("order") or {}
-    source = obj.get("source_data") or {}
+    order = obj.get("order")
+    order = order if isinstance(order, dict) else {}
+    source = obj.get("source_data")
+    source = source if isinstance(source, dict) else {}
     values = {
         "amount_cents": obj.get("amount_cents"),
         "created_at": obj.get("created_at"),

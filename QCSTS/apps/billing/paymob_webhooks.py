@@ -5,6 +5,8 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 from core.views import TenantExemptAPIView
 
 from .models import Invoice, PaymentEvent, Subscription
@@ -22,6 +24,7 @@ class PaymobTransactionWebhookView(TenantExemptAPIView):
     permission_classes = [AllowAny]
 
     @transaction.atomic
+    @extend_schema(operation_id="paymob_transaction_webhook", request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         obj = request.data.get("obj") if isinstance(request.data, dict) else None
         if not isinstance(obj, dict):
@@ -32,7 +35,12 @@ class PaymobTransactionWebhookView(TenantExemptAPIView):
             return Response({"detail": "Invalid callback signature."}, status=403)
 
         transaction_id = str(obj.get("id", "")).strip()
-        order = obj.get("order") or {}
+        order = obj.get("order")
+        if not isinstance(order, dict):
+            return Response({"detail": "Invalid Paymob order payload."}, status=400)
+        source_data = obj.get("source_data")
+        if source_data is not None and not isinstance(source_data, dict):
+            return Response({"detail": "Invalid Paymob source_data payload."}, status=400)
         order_id = str(order.get("id", "")).strip()
         if not transaction_id or not order_id:
             return Response({"detail": "Missing transaction/order identifier."}, status=400)
@@ -60,7 +68,10 @@ class PaymobTransactionWebhookView(TenantExemptAPIView):
         if not created and event.processed:
             return Response({"status": "already_processed"}, status=200)
 
-        amount_cents = int(obj.get("amount_cents") or 0)
+        try:
+            amount_cents = int(obj.get("amount_cents") or 0)
+        except (TypeError, ValueError):
+            return Response({"detail": "Invalid amount_cents value."}, status=400)
         expected_cents = int((invoice.total * Decimal("100")).quantize(Decimal("1")))
         if amount_cents != expected_cents:
             return Response({"detail": "Payment amount does not match invoice."}, status=409)

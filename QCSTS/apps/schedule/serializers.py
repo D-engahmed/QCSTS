@@ -21,8 +21,8 @@ class TestPointSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_batch_number(self, obj):
+    def get_batch_number(self, obj) -> str:
         return obj.batch.batch_number
 
-    def get_product_name(self, obj):
+    def get_product_name(self, obj) -> str:
         return obj.batch.product.name

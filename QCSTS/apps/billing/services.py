@@ -42,8 +42,13 @@ class BillingService:
             provider=provider, event_id=event_id,
             defaults={"organization": organization, "event_type": event_type, "payload": payload},
         )
-        if not created and event.processed:
-            return event, False
+        if not created:
+            if event.organization_id != organization.id:
+                raise PermissionDenied(
+                    "Payment event cannot be reassigned to another organization."
+                )
+            if event.processed:
+                return event, False
         event.organization = organization
         event.event_type = event_type
         event.payload = payload

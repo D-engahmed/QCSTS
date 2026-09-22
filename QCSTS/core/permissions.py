@@ -121,3 +121,12 @@ class HasOrganizationPermission(_MembershipPermission):
                 f"{self.__class__.__name__} must define permission_code."
             )
         return self._membership(request).has_permission(self.permission_code)
+
+
+class DenyTenantAction(BasePermission):
+    """Fail closed when a tenant action has no explicit authorization policy."""
+
+    message = "This tenant action is not authorized."
+
+    def has_permission(self, request, view):
+        return False

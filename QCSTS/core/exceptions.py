@@ -2,6 +2,8 @@ from rest_framework.views import exception_handler
 from rest_framework.response import Response
 from rest_framework import status
 import logging
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied, ValidationError as DjangoValidationError
+from django.db import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -160,12 +162,12 @@ class InvalidStudyType(QCSTSException):
     default_status = status.HTTP_400_BAD_REQUEST
 
 
-# =====================  Audit Exception (non-fatal) =====================
+# =====================  Audit Exception =====================
 class AuditLogFailure(QCSTSException):
     """
-    Raised internally when AuditService fails to write a log entry.
-    This is NON-FATAL — it must never block the primary operation.
-    AuditService catches this and writes to a local file instead.
+    Raised when a required audit record cannot be persisted.
+    Security-critical state changes use this to fail closed rather than
+    committing an action that cannot be recorded in the audit trail.
     """
 
     default_message = "Audit log could not be written."
@@ -212,6 +214,43 @@ def qcsts_exception_handler(exc, context):
                 "errors": {"non_field_errors": [exc.message]},
             },
             status=exc.status_code,
+        )
+
+    # Step 3: Normalize native Django exceptions that can escape model/service code.
+    # Model-level tenant and integrity guards must never become opaque HTTP 500s.
+    if isinstance(exc, DjangoValidationError):
+        if hasattr(exc, "message_dict"):
+            errors = exc.message_dict
+        else:
+            errors = {"non_field_errors": list(exc.messages)}
+        return Response(
+            {
+                "success": False,
+                "data": None,
+                "errors": errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if isinstance(exc, DjangoPermissionDenied):
+        return Response(
+            {
+                "success": False,
+                "data": None,
+                "errors": {"detail": [str(exc) or "Permission denied."]},
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if isinstance(exc, IntegrityError):
+        logger.warning("Database integrity conflict: %s", exc.__class__.__name__)
+        return Response(
+            {
+                "success": False,
+                "data": None,
+                "errors": {"non_field_errors": ["The request conflicts with existing data."]},
+            },
+            status=status.HTTP_409_CONFLICT,
         )
 
     # Step 3: Catch anything else — log it, return safe 500

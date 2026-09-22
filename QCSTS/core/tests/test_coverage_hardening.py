@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import time
 from decimal import Decimal
 from datetime import timedelta
+from types import SimpleNamespace
 
 import pytest
 from rest_framework.test import APIClient, APIRequestFactory
@@ -14,7 +15,6 @@ from django.core import mail
 from django.core.management import call_command
 from django.utils import timezone
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.test import APIClient
 
 from apps.accounts.tests.factories import AdminFactory, QAManagerFactory, UserFactory
 from apps.accounts.models import CustomUser

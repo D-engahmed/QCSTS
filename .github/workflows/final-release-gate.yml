@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  NODE_VERSION: "22"
+
 concurrency:
   group: qcsts-final-gate-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -61,6 +64,8 @@ jobs:
       - run: pip install -r requirements/test.txt
       - run: pip check
       - run: python manage.py check
+      - name: Compile Python source, including migrations
+        run: python -m compileall -q apps core services config
       - run: python manage.py makemigrations --check --dry-run
       - run: python manage.py migrate --noinput
       - run: pytest -q
@@ -77,7 +82,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci

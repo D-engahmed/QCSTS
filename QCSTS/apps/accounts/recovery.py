@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import transaction
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.utils import timezone
@@ -8,6 +9,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.throttling import AnonRateThrottle
 
 from apps.accounts.models import CustomUser, EmailVerificationToken
+from apps.accounts.security import revoke_user_sessions
 from apps.accounts.serializers import PasswordResetRequestSerializer, PasswordResetConfirmSerializer, VerifyEmailSerializer
 from core.responses import error_response, success_response
 from core.views import PublicAPIView
@@ -71,6 +73,7 @@ class PasswordResetConfirmView(PublicAPIView):
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
 
+    @transaction.atomic
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -86,6 +89,7 @@ class PasswordResetConfirmView(PublicAPIView):
         user.failed_login_attempts = 0
         user.locked_until = None
         user.save(update_fields=["password", "password_changed_at", "failed_login_attempts", "locked_until"])
+        revoke_user_sessions(user)
         AuditService.log(performed_by=user, action="PASSWORD_RESET", model_name="CustomUser", object_id=user.id, object_repr=str(user))
         return success_response(message="Password reset successfully. You can now sign in.")
 
@@ -96,6 +100,7 @@ class VerifyEmailView(PublicAPIView):
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
 
+    @transaction.atomic
     def post(self, request):
         serializer = VerifyEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

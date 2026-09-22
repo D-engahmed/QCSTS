@@ -1,6 +1,6 @@
 import uuid
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 
 
@@ -71,37 +71,60 @@ class BaseModel(models.Model):
 
     def soft_delete(self, deleted_by=None, ip_address=None, notes=""):
         """
-        Marks the record as inactive instead of deleting it.
-        This is the ONLY way to 'delete' anything in QCSTS.
-        
-        Automatically creates an atomic AuditLog entry to ensure 
-        GxP compliance and traceability.
+        Marks the record inactive instead of deleting it.
+
+        The audit row and the state change are committed as one database
+        transaction. A failure in either operation rolls the whole retirement
+        back, preventing an audit trail that claims a deletion that never
+        committed.
         """
+        if not self.is_active:
+            return
+
         from services.audit_service import AuditService  # Local import to avoid circular dependency
-        
+
         old_value = {"is_active": True}
         new_value = {"is_active": False}
-        
-        self.is_active = False
-        
-        # Atomic audit log creation
-        AuditService.log(
-            performed_by=deleted_by,
-            action="DELETE",
-            model_name=self.__class__.__name__,
-            object_id=self.id,
-            object_repr=str(self),
-            old_value=old_value,
-            new_value=new_value,
-            ip_address=ip_address,
-            notes=notes,
-            organization=self.organization if hasattr(self, "organization") else None,
-        )
-        
-        self.save(update_fields=["is_active", "updated_at"])
+
+        with transaction.atomic():
+            AuditService.log(
+                performed_by=deleted_by,
+                action="DELETE",
+                model_name=self.__class__.__name__,
+                object_id=self.id,
+                object_repr=str(self),
+                old_value=old_value,
+                new_value=new_value,
+                ip_address=ip_address,
+                notes=notes,
+                organization=self.organization if hasattr(self, "organization") else None,
+                required=True,
+            )
+            self.is_active = False
+            self.save(update_fields=["is_active", "updated_at"])
 
     def __repr__(self):
         return f"<{self.__class__.__name__} id={self.id}>"
+
+    def assert_user_in_organization(self, user, field_name="user", require_active=True):
+        """
+        Ensure an actor-style user reference belongs to this record's organization.
+
+        CustomUser deliberately has no organization_id; authority lives on
+        Membership. This helper closes the gap where generic organization
+        equality checks cannot validate a user FK.
+        """
+        if user is None or self.organization_id is None:
+            return
+
+        memberships = user.memberships.filter(organization_id=self.organization_id)
+        if require_active:
+            memberships = memberships.filter(is_active=True)
+
+        if not memberships.exists():
+            raise ValidationError(
+                {field_name: f"{field_name} must belong to this organization."}
+            )
 
     def assert_same_organization(self, **related):
         """

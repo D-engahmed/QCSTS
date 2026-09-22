@@ -5,7 +5,7 @@ import base64
 import hashlib
 import hmac
 import struct
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
@@ -98,7 +98,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         key = getattr(settings, "MFA_ENCRYPTION_KEY", "")
         if not key or not self.mfa_secret_encrypted:
             return None
-        return Fernet(key.encode()).decrypt(self.mfa_secret_encrypted.encode()).decode()
+        try:
+            return Fernet(key.encode()).decrypt(self.mfa_secret_encrypted.encode()).decode()
+        except (InvalidToken, ValueError, TypeError):
+            return None
 
     def verify_totp(self, code, timestamp=None):
         secret = self.get_mfa_secret()

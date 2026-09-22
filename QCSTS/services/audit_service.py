@@ -12,8 +12,7 @@ class AuditService:
     Rules:
     - Called by every service that modifies data
     - Never called directly from views
-    - If audit writing fails, it logs to file but never
-      blocks the primary operation (non-fatal)
+    - Audit persistence is fail-closed for security-critical operations.
 
     Usage:
         AuditService.log(
@@ -39,10 +38,13 @@ class AuditService:
         new_value=None,
         ip_address=None,
         notes="",
-        organization=None,  # NEW: Added for multi-tenant isolation
+        organization=None,
+        required=True,
     ):
         """
         Creates an immutable audit log entry.
+
+        Security-critical operations fail closed when audit persistence fails.
         """
         try:
             AuditLog.objects.create(
@@ -64,4 +66,7 @@ class AuditService:
                 model_name,
                 object_id,
                 str(e),
+                exc_info=True,
             )
+            if required:
+                raise AuditLogFailure() from e

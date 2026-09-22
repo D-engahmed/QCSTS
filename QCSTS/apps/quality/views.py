@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from core.views import TenantScopedModelViewSet
-from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager
+from core.permissions import IsAnalystOrAbove, IsReviewerOrAbove, IsQAManager, DenyTenantAction
 from apps.compliance.models import ElectronicSignature
 from services.signature_service import SignatureService
 from services.audit_service import AuditService
@@ -14,7 +14,7 @@ from .serializers import CAPASerializer, ChangeControlSerializer, DeviationSeria
 
 
 class QualityTenantViewSet(TenantScopedModelViewSet):
-    permission_classes = []
+    permission_classes = [IsAnalystOrAbove]
     """
     Controlled quality-event API.
 
@@ -42,9 +42,9 @@ class QualityTenantViewSet(TenantScopedModelViewSet):
             return [IsQAManager()]
         if getattr(self, "action", None) == "transition":
             requested = getattr(self.request, "data", {}).get("status")
-            permission = self.transition_permissions.get(requested, IsQAManager)
+            permission = self.transition_permissions.get(requested, DenyTenantAction)
             return [permission()]
-        return [IsAnalystOrAbove()]
+        return [DenyTenantAction()]
 
     def perform_create(self, serializer):
         serializer.save(
@@ -120,25 +120,30 @@ class QualityTenantViewSet(TenantScopedModelViewSet):
 
 
 class OOSInvestigationViewSet(QualityTenantViewSet):
+    permission_classes = [IsAnalystOrAbove]
     queryset = OOSInvestigation.objects.select_related("result", "owner")
     serializer_class = OOSInvestigationSerializer
 
 
 class OOTInvestigationViewSet(QualityTenantViewSet):
+    permission_classes = [IsAnalystOrAbove]
     queryset = OOTInvestigation.objects.select_related("result", "owner")
     serializer_class = OOTInvestigationSerializer
 
 
 class DeviationViewSet(QualityTenantViewSet):
+    permission_classes = [IsAnalystOrAbove]
     queryset = Deviation.objects.select_related("owner")
     serializer_class = DeviationSerializer
 
 
 class CAPAViewSet(QualityTenantViewSet):
+    permission_classes = [IsAnalystOrAbove]
     queryset = CAPA.objects.select_related("owner")
     serializer_class = CAPASerializer
 
 
 class ChangeControlViewSet(QualityTenantViewSet):
+    permission_classes = [IsAnalystOrAbove]
     queryset = ChangeControl.objects.select_related("owner")
     serializer_class = ChangeControlSerializer

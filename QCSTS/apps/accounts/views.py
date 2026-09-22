@@ -7,6 +7,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import (
@@ -19,6 +21,7 @@ from apps.accounts.serializers import (
 from apps.platform.models import Membership, Organization, Permission, Role, Site
 from apps.billing.models import Plan, Subscription
 from apps.accounts.recovery import issue_email_verification
+from apps.accounts.security import revoke_user_sessions, issue_tokens
 from core.permissions import IsAdmin
 from core.responses import error_response, success_response
 from core.views import PublicAPIView, TenantExemptAPIView, TenantScopedAPIView
@@ -56,12 +59,13 @@ class LoginView(PublicAPIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
 
+    @transaction.atomic
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
 
-        refresh = RefreshToken.for_user(user)
+        refresh = issue_tokens(user)
         ip = request.META.get("REMOTE_ADDR")
         user.last_login_ip = ip
         user.save(update_fields=["last_login_ip"])
@@ -74,6 +78,11 @@ class LoginView(PublicAPIView):
             Membership.objects.select_related("organization", "default_site", "role")
             .filter(user=user, is_active=True)
             .first()
+        )
+        active_site = (
+            membership.default_site
+            if membership and membership.default_site and membership.default_site.status == Site.Status.ACTIVE
+            else None
         )
         return success_response(
             data={
@@ -106,7 +115,7 @@ class LoginView(PublicAPIView):
                         "timezone": membership.default_site.timezone,
                         "status": membership.default_site.status,
                     }
-                    if membership and membership.default_site
+                    if active_site
                     else None
                 ),
                 "membership": (
@@ -114,7 +123,7 @@ class LoginView(PublicAPIView):
                         "id": str(membership.id),
                         "role": membership.role.name,
                         "organization_id": str(membership.organization_id),
-                        "site_id": str(membership.default_site_id) if membership.default_site_id else None,
+                        "site_id": str(active_site.id) if active_site else None,
                     }
                     if membership
                     else None
@@ -235,7 +244,7 @@ class RegisterView(PublicAPIView):
         )
 
         issue_email_verification(user)
-        refresh = RefreshToken.for_user(user)
+        refresh = issue_tokens(user)
         return success_response(
             data={
                 "access": str(refresh.access_token),
@@ -277,6 +286,7 @@ class LogoutView(TenantExemptAPIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(operation_id="logout", request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:
@@ -299,6 +309,7 @@ class MeView(TenantExemptAPIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(operation_id="me", responses=UserSerializer)
     def get(self, request):
         return success_response(data=UserSerializer(request.user).data)
 
@@ -309,6 +320,8 @@ class ChangePasswordView(TenantExemptAPIView):
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(operation_id="change_password", request=ChangePasswordSerializer, responses=OpenApiTypes.OBJECT)
+    @transaction.atomic
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -316,12 +329,22 @@ class ChangePasswordView(TenantExemptAPIView):
         user.set_password(serializer.validated_data["new_password"])
         user.password_changed_at = timezone.now()
         user.save(update_fields=["password", "password_changed_at"])
+        revoke_user_sessions(user)
+        AuditService.log(
+            performed_by=user,
+            action="PASSWORD_CHANGED",
+            model_name="CustomUser",
+            object_id=user.id,
+            object_repr=str(user),
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
         return success_response(message="Password changed successfully.")
 
 
 class UserListCreateView(TenantScopedAPIView):
     permission_classes = [IsAdmin]
 
+    @extend_schema(operation_id="user_list", responses=UserSerializer(many=True))
     def get(self, request):
         users = (
             CustomUser.objects.filter(
@@ -338,6 +361,7 @@ class UserListCreateView(TenantScopedAPIView):
         )
 
     @transaction.atomic
+    @extend_schema(operation_id="user_create", request=CreateUserSerializer, responses=UserSerializer)
     def post(self, request):
         serializer = CreateUserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -387,6 +411,7 @@ class UserDetailView(TenantScopedAPIView):
             .first()
         )
 
+    @extend_schema(operation_id="user_retrieve", responses=UserSerializer)
     def get(self, request, pk):
         membership = self.get_membership(pk)
         if not membership:
@@ -397,6 +422,7 @@ class UserDetailView(TenantScopedAPIView):
             ).data
         )
 
+    @extend_schema(operation_id="user_update", request=OpenApiTypes.OBJECT, responses=UserSerializer)
     def patch(self, request, pk):
         membership = self.get_membership(pk)
         if not membership:

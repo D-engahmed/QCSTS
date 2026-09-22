@@ -151,3 +151,19 @@ class TestBatchDetailView:
         c = auth_client(analyst)
         response = c.get(f"/api/v1/batches/{uuid.uuid4()}/")
         assert response.status_code == 404
+
+
+    def test_update_preserves_existing_batch_number(self):
+        analyst = UserFactory()
+        batch = BatchFactory(batch_number="STABLE-BATCH-NUMBER-001")
+        c = auth_client(analyst)
+
+        response = c.patch(
+            f"/api/v1/batches/{batch.id}/",
+            {"batch_number": batch.batch_number},
+            format="json",
+        )
+
+        assert response.status_code == 200
+        batch.refresh_from_db()
+        assert batch.batch_number == "STABLE-BATCH-NUMBER-001"

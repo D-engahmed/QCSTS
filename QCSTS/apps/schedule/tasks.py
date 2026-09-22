@@ -17,7 +17,7 @@ def mark_overdue_test_points(self):
     """
     from apps.schedule.models import TestPoint
 
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     # Only target pending or overdue statuses. EXCLUDE "pulled".
     overdue_qs = TestPoint.objects.filter(

@@ -2,6 +2,8 @@ import csv
 from django.http import HttpResponse
 from django.utils import timezone
 from core.views import TenantScopedAPIView
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 from apps.batches.models import Batch
 from apps.products.models import Product
 from apps.schedule.models import TestPoint
@@ -14,6 +16,7 @@ from core.responses import error_response, success_response
 class DashboardView(TenantScopedAPIView):
     permission_classes = [IsAnalystOrAbove]
 
+    @extend_schema(operation_id="dashboard", responses=OpenApiTypes.OBJECT)
     def get(self, request):
         today = timezone.localdate()
         in_30_days = today + timezone.timedelta(days=30)
@@ -86,6 +89,7 @@ class DashboardView(TenantScopedAPIView):
 class CSVExportView(TenantScopedAPIView):
     permission_classes = [IsAnalystOrAbove]
 
+    @extend_schema(operation_id="csv_export", responses={200: OpenApiTypes.BINARY})
     def get(self, request):
         resource = request.query_params.get("resource", "results").strip().lower()
         response = HttpResponse(content_type="text/csv; charset=utf-8")

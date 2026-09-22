@@ -14,7 +14,7 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
 
 jobs:
   backend:
@@ -77,6 +77,9 @@ jobs:
       - name: Django application system checks
         run: python manage.py check
 
+      - name: Compile Python source, including migrations
+        run: python -m compileall -q apps core services config
+
       - name: Production deployment checks
         env:
           DJANGO_SETTINGS_MODULE: config.settings.production
@@ -87,6 +90,10 @@ jobs:
           REDIS_URL: redis://127.0.0.1:6379/0
           PAYMOB_HMAC_SECRET: ci-paymob-hmac-secret
         run: python manage.py check --deploy
+
+      - name: Diagnose notification created_at migration state
+        run: |
+          python manage.py shell -c "from django.apps import apps; from django.db import connection; from django.db.migrations.loader import MigrationLoader; loader=MigrationLoader(connection); hist=loader.project_state([('notifications','0002_alter_notification_created_at_and_more')]).apps.get_model('notifications','Notification')._meta.get_field('created_at').deconstruct(); cur=apps.get_model('notifications','Notification')._meta.get_field('created_at').deconstruct(); print('HIST_CREATED_AT=',repr(hist)); print('CUR_CREATED_AT=',repr(cur)); print('CREATED_AT_EQUAL=',hist==cur)"
 
       - name: Migration graph is synchronized
         run: python manage.py makemigrations --check --dry-run

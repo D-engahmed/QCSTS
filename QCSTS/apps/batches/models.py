@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from core.models import BaseModel, ActiveManager
 from constants.stability import StudyType
 
@@ -75,6 +76,12 @@ class Batch(BaseModel):
         return f"{self.batch_number} ({self.product.name})"
 
     def save(self, *args, **kwargs):
+        if self.expiry_date < self.mfg_date:
+            raise ValidationError({"expiry_date": "Expiry date cannot be before the manufacturing date."})
+        if self.incubation_date < self.mfg_date:
+            raise ValidationError({"incubation_date": "Incubation date cannot be before the manufacturing date."})
+        if self.qty_remaining > self.qty_placed:
+            raise ValidationError({"qty_remaining": "Remaining quantity cannot exceed placed quantity."})
         self.assert_same_organization(product=self.product)
         super().save(*args, **kwargs)
 
