@@ -92,21 +92,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         self.locked_until = None
         self.save(update_fields=["failed_login_attempts", "locked_until"])
 
-
-class EmailVerificationToken(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="email_verification_tokens")
-    token_hash = models.CharField(max_length=64, unique=True)
-    expires_at = models.DateTimeField()
-    used_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "accounts_email_verification_token"
-        indexes = [
-            models.Index(fields=["user", "expires_at"], name="accounts_em_user_id_6c50a7_idx"),
-        ]
-
     def set_mfa_secret(self, secret):
         key = getattr(settings, "MFA_ENCRYPTION_KEY", "")
         if not key:
@@ -126,13 +111,37 @@ class EmailVerificationToken(models.Model):
         timestamp = timezone.now().timestamp() if timestamp is None else timestamp
         counter = int(timestamp // 30)
         padding = "=" * ((8 - len(secret) % 8) % 8)
-        key = base64.b32decode(secret.upper() + padding)
+        try:
+            key = base64.b32decode(secret.upper() + padding)
+        except (ValueError, base64.binascii.Error):
+            return False
         for offset in (-1, 0, 1):
             moving = counter + offset
             digest = hmac.new(key, struct.pack(">Q", moving), hashlib.sha1).digest()
             index = digest[-1] & 0x0F
-            binary = ((digest[index] & 0x7F) << 24) | (digest[index + 1] << 16) | (digest[index + 2] << 8) | digest[index + 3]
+            binary = (
+                ((digest[index] & 0x7F) << 24)
+                | (digest[index + 1] << 16)
+                | (digest[index + 2] << 8)
+                | digest[index + 3]
+            )
             expected = f"{binary % 1000000:06d}"
             if hmac.compare_digest(expected, code):
                 return True
         return False
+
+
+class EmailVerificationToken(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="email_verification_tokens")
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "accounts_email_verification_token"
+        indexes = [
+            models.Index(fields=["user", "expires_at"], name="accounts_em_user_id_6c50a7_idx"),
+        ]
+
