@@ -162,12 +162,12 @@ class InvalidStudyType(QCSTSException):
     default_status = status.HTTP_400_BAD_REQUEST
 
 
-# =====================  Audit Exception (non-fatal) =====================
+# =====================  Audit Exception =====================
 class AuditLogFailure(QCSTSException):
     """
-    Raised internally when AuditService fails to write a log entry.
-    This is NON-FATAL — it must never block the primary operation.
-    AuditService catches this and writes to a local file instead.
+    Raised when a required audit record cannot be persisted.
+    Security-critical state changes use this to fail closed rather than
+    committing an action that cannot be recorded in the audit trail.
     """
 
     default_message = "Audit log could not be written."
