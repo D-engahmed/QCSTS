@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import time
 from decimal import Decimal
 from datetime import timedelta
+from types import SimpleNamespace
 
 import pytest
 from rest_framework.test import APIClient, APIRequestFactory
