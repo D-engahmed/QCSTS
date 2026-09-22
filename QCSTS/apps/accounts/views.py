@@ -328,6 +328,14 @@ class ChangePasswordView(TenantExemptAPIView):
         user.password_changed_at = timezone.now()
         user.save(update_fields=["password", "password_changed_at"])
         revoke_user_sessions(user)
+        AuditService.log(
+            performed_by=user,
+            action="PASSWORD_CHANGED",
+            model_name="CustomUser",
+            object_id=user.id,
+            object_repr=str(user),
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
         return success_response(message="Password changed successfully.")
 
 
