@@ -46,6 +46,7 @@ class QualityEvent(BaseModel):
     def save(self, *args, **kwargs):
         if self.owner_id:
             self.assert_same_organization(owner=self.owner)
+            self.assert_user_in_organization(self.owner, "owner")
         super().save(*args, **kwargs)
 
 
