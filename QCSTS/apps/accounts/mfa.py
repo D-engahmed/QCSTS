@@ -4,6 +4,8 @@ from urllib.parse import quote
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import MFACodeSerializer, MFADisableSerializer
@@ -20,6 +22,7 @@ class MFAStatusView(TenantExemptAPIView):
     """MFA status is user-account scoped, so it intentionally bypasses organization tenancy."""
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(operation_id="mfa_status", responses=OpenApiTypes.OBJECT)
     def get(self, request):
         return success_response(data={"enabled": request.user.mfa_enabled})
 
@@ -30,6 +33,7 @@ class MFASetupView(TenantExemptAPIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signature"
 
+    @extend_schema(operation_id="mfa_setup", request=None, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         if request.user.mfa_enabled:
             return error_response({"detail": "MFA is already enabled."}, status=400)
@@ -55,6 +59,7 @@ class MFAConfirmView(TenantExemptAPIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signature"
 
+    @extend_schema(operation_id="mfa_confirm", request=MFACodeSerializer, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         serializer = MFACodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -80,6 +85,7 @@ class MFADisableView(TenantExemptAPIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signature"
 
+    @extend_schema(operation_id="mfa_disable", request=MFADisableSerializer, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         serializer = MFADisableSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
