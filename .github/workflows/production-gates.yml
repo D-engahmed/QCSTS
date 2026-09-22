@@ -14,7 +14,7 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
 
 jobs:
   backend:
@@ -76,6 +76,9 @@ jobs:
 
       - name: Django application system checks
         run: python manage.py check
+
+      - name: Compile Python source, including migrations
+        run: python -m compileall -q apps core services config
 
       - name: Production deployment checks
         env:
