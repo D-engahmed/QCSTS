@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from core.models import BaseModel, ActiveManager
@@ -40,5 +41,13 @@ class Notification(BaseModel):
         ]
 
     def save(self, *args, **kwargs):
-        self.assert_same_organization(user=self.user)
+        if self.organization_id is not None:
+            self.assert_same_organization(user=self.user)
+            if not self.user.memberships.filter(
+                is_active=True,
+                organization_id=self.organization_id,
+            ).exists():
+                raise ValidationError(
+                    {"user": "The notification user is not an active member of the notification organization."}
+                )
         super().save(*args, **kwargs)
