@@ -111,8 +111,8 @@ jobs:
           PAYMOB_HMAC_SECRET=ci-paymob-secret
           MFA_ENCRYPTION_KEY=FNO0V6hoFD3uOI4ZhQbR_rV7bBbiEUdZaz0o-jRM7Lg=
           EOF
-      - run: docker compose -f QCSTS/docker/docker-compose.production.yml config
-      - run: docker compose -f QCSTS/docker/docker-compose.production.yml build --pull
+      - run: docker compose --env-file QCSTS/.env -f QCSTS/docker/docker-compose.production.yml config
+      - run: docker compose --env-file QCSTS/.env -f QCSTS/docker/docker-compose.production.yml build --pull
 
   recovery:
     name: Backup and restore verification
