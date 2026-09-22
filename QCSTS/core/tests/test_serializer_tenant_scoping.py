@@ -162,6 +162,23 @@ class TestCrossTenantReferenceFieldsAreRejected:
 
 
 @pytest.mark.django_db
+@pytest.mark.django_db
+def test_tenant_serializer_makes_actor_fields_server_owned(two_tenants):
+    from apps.stability.api import StorageConditionSerializer
+
+    serializer = StorageConditionSerializer(
+        data={
+            "code": "50C",
+            "name": "50°C / 20% RH",
+            "created_by": str(two_tenants["user_b"].id),
+            "organization": str(two_tenants["org_a"].id),
+        },
+        context={"request": type("Request", (), {"organization": two_tenants["org_a"]})()},
+    )
+    assert serializer.fields["created_by"].read_only is True
+    assert serializer.fields["organization"].read_only is True
+
+
 class TestTenantScopedFieldFailsClosedNotOpen:
     def test_write_without_request_context_raises_rather_than_validating_unscoped(
         self, two_tenants
