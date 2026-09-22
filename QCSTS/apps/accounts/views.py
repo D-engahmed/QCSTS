@@ -77,6 +77,11 @@ class LoginView(PublicAPIView):
             .filter(user=user, is_active=True)
             .first()
         )
+        active_site = (
+            membership.default_site
+            if membership and membership.default_site and membership.default_site.status == Site.Status.ACTIVE
+            else None
+        )
         return success_response(
             data={
                 "access": str(refresh.access_token),
@@ -108,7 +113,7 @@ class LoginView(PublicAPIView):
                         "timezone": membership.default_site.timezone,
                         "status": membership.default_site.status,
                     }
-                    if membership and membership.default_site
+                    if active_site
                     else None
                 ),
                 "membership": (
@@ -116,7 +121,7 @@ class LoginView(PublicAPIView):
                         "id": str(membership.id),
                         "role": membership.role.name,
                         "organization_id": str(membership.organization_id),
-                        "site_id": str(membership.default_site_id) if membership.default_site_id else None,
+                        "site_id": str(active_site.id) if active_site else None,
                     }
                     if membership
                     else None
