@@ -76,9 +76,6 @@ class TenantContextService:
         ).first()
         if not site:
             raise NotFound("Active site not found in the active organization.")
-        if not (
-            membership.default_site_id == site.id
-            or membership.sites.filter(id=site.id).exists()
-        ):
+        if not membership.sites.filter(id=site.id).exists():
             raise PermissionDenied("You do not have access to this site.")
         return site
