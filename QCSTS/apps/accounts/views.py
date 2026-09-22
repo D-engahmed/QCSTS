@@ -7,6 +7,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import (
@@ -277,6 +279,7 @@ class LogoutView(TenantExemptAPIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(operation_id="logout", request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:
@@ -299,6 +302,7 @@ class MeView(TenantExemptAPIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(operation_id="me", responses=UserSerializer)
     def get(self, request):
         return success_response(data=UserSerializer(request.user).data)
 
@@ -309,6 +313,7 @@ class ChangePasswordView(TenantExemptAPIView):
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(operation_id="change_password", request=ChangePasswordSerializer, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -322,6 +327,7 @@ class ChangePasswordView(TenantExemptAPIView):
 class UserListCreateView(TenantScopedAPIView):
     permission_classes = [IsAdmin]
 
+    @extend_schema(operation_id="user_list", responses=UserSerializer(many=True))
     def get(self, request):
         users = (
             CustomUser.objects.filter(
@@ -338,6 +344,7 @@ class UserListCreateView(TenantScopedAPIView):
         )
 
     @transaction.atomic
+    @extend_schema(operation_id="user_create", request=CreateUserSerializer, responses=UserSerializer)
     def post(self, request):
         serializer = CreateUserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -387,6 +394,7 @@ class UserDetailView(TenantScopedAPIView):
             .first()
         )
 
+    @extend_schema(operation_id="user_retrieve", responses=UserSerializer)
     def get(self, request, pk):
         membership = self.get_membership(pk)
         if not membership:
@@ -397,6 +405,7 @@ class UserDetailView(TenantScopedAPIView):
             ).data
         )
 
+    @extend_schema(operation_id="user_update", request=OpenApiTypes.OBJECT, responses=UserSerializer)
     def patch(self, request, pk):
         membership = self.get_membership(pk)
         if not membership:
