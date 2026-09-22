@@ -1,7 +1,6 @@
 import base64
 import hashlib
 import hmac
-import re
 import struct
 import time
 from decimal import Decimal
@@ -23,7 +22,7 @@ from apps.quality.models import Deviation
 from apps.schedule.tests.factories import TestPointFactory
 from apps.batches.models import Batch
 from apps.products.tests.factories import ProductFactory
-from apps.platform.models import Organization, Site
+from apps.platform.models import Organization
 from apps.stability.api import StabilityTenantViewSet
 from apps.stability.models import (
     ProtocolVersion,
@@ -33,14 +32,10 @@ from apps.stability.models import (
     StabilitySample,
     StorageCondition,
     Protocol,
-    Specification,
-    StudyBatch,
 )
 from apps.notifications.tasks import notify_upcoming_and_overdue_test_points
-from apps.reports.analytics import AnalyticsView
 from apps.quality.views import QualityTenantViewSet
-from apps.accounts import mfa
-from apps.accounts.models import CustomUser
+from core.permissions import IsAnalystOrAbove
 from core.views import TenantScopedAPIView, TenantScopedViewSet, TenantScopedModelViewSet
 
 
@@ -424,7 +419,7 @@ def test_seed_plans_command_is_idempotent():
 
 def test_tenant_base_view_permission_guards_are_fail_closed():
     class GoodView(TenantScopedAPIView):
-        permission_classes = [mfa.IsAuthenticated] if False else [__import__("core.permissions", fromlist=["IsAnalystOrAbove"]).IsAnalystOrAbove]
+        permission_classes = [IsAnalystOrAbove]
 
     class NoDeclaration(TenantScopedAPIView):
         pass
@@ -564,7 +559,8 @@ def test_notification_task_creates_and_deduplicates_due_and_overdue_notification
         qty_placed=10,
         qty_remaining=10,
     )
-    supervisor = __import__("apps.accounts.tests.factories", fromlist=["SupervisorFactory"]).SupervisorFactory()
+    from apps.accounts.tests.factories import SupervisorFactory
+    supervisor = SupervisorFactory()
     today = timezone.localdate()
     TestPointFactory(batch=batch, organization=organization, created_by=owner, status="pending", scheduled_date=today, month=1)
     TestPointFactory(batch=batch, organization=organization, created_by=owner, status="overdue", scheduled_date=today - timedelta(days=2), month=3)
