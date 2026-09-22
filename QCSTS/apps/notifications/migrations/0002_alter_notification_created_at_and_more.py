@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+import django.db.models.deletion
 from django.db import migrations, models
 
 
@@ -51,7 +52,7 @@ class Migration(migrations.Migration):
                 blank=True,
                 help_text="The user who created this record.",
                 null=True,
-                on_delete=models.deletion.SET_NULL,
+                on_delete=django.db.models.deletion.SET_NULL,
                 related_name="%(app_label)s_%(class)s_created",
                 to=settings.AUTH_USER_MODEL,
             ),
@@ -72,7 +73,7 @@ class Migration(migrations.Migration):
                 blank=True,
                 db_index=True,
                 null=True,
-                on_delete=models.deletion.PROTECT,
+                on_delete=django.db.models.deletion.PROTECT,
                 related_name="%(app_label)s_%(class)s_records",
                 to="platform.organization",
             ),
