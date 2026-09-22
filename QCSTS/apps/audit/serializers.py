@@ -29,7 +29,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_performed_by_name(self, obj):
+    def get_performed_by_name(self, obj) -> str:
         if obj.performed_by:
             return obj.performed_by.full_name
         return "System"
