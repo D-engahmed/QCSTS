@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import transaction
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.utils import timezone
@@ -99,6 +100,7 @@ class VerifyEmailView(PublicAPIView):
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
 
+    @transaction.atomic
     def post(self, request):
         serializer = VerifyEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
