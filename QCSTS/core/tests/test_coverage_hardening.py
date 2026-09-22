@@ -21,9 +21,22 @@ from apps.notifications.models import Notification
 from apps.notifications.services import create_notification
 from apps.quality.models import Deviation
 from apps.schedule.tests.factories import TestPointFactory
-from apps.batches.tests.factories import BatchFactory
+from apps.batches.models import Batch
 from apps.products.tests.factories import ProductFactory
-from apps.platform.models import Organization
+from apps.platform.models import Organization, Site
+from apps.stability.api import StabilityTenantViewSet
+from apps.stability.models import (
+    ProtocolVersion,
+    SpecificationVersion,
+    StabilityStudy,
+    StudyTimepoint,
+    StabilitySample,
+    StorageCondition,
+    Protocol,
+    Specification,
+    StudyBatch,
+)
+from apps.notifications.tasks import notify_upcoming_and_overdue_test_points
 from apps.reports.analytics import AnalyticsView
 from apps.quality.views import QualityTenantViewSet
 from apps.accounts import mfa
@@ -465,3 +478,101 @@ def test_tenant_readonly_viewset_permission_guards_are_fail_closed():
         BadPublic().get_permissions()
     with pytest.raises(RuntimeError, match="IsAuthenticated alone"):
         AuthOnly().get_permissions()
+
+
+@pytest.mark.django_db
+class TestStabilityCoverage:
+    def test_allowed_transition_matrix_covers_all_stability_aggregates(self):
+        view = StabilityTenantViewSet()
+        assert view.allowed_transitions(ProtocolVersion())["draft"] == {"approved"}
+        assert view.allowed_transitions(SpecificationVersion())["approved"] == {"effective", "superseded"}
+        assert view.allowed_transitions(StabilityStudy())["draft"] == {"planned", "canceled"}
+        assert view.allowed_transitions(StudyTimepoint())["planned"] == {"open", "canceled"}
+        assert view.allowed_transitions(StabilitySample())["stored"] == {"pulled", "disposed", "retained"}
+        assert view.allowed_transitions(StorageCondition()) == {}
+
+    def test_storage_condition_transition_rejects_invalid_target(self):
+        user = UserFactory()
+        organization = user.memberships.select_related("organization").get().organization
+        condition = StorageCondition.objects.create(
+            organization=organization,
+            created_by=user,
+            code="25C",
+            name="25 C / 60 RH",
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+        response = client.post(
+            f"/api/v1/stability/storage-conditions/{condition.id}/transition/",
+            {"status": "approved", "comments": "Not a valid lifecycle target."},
+            format="json",
+        )
+        assert response.status_code == 400
+
+    def test_protocol_version_can_be_approved_with_signature(self):
+        user = QAManagerFactory()
+        organization = user.memberships.select_related("organization").get().organization
+        product = ProductFactory(organization=organization, created_by=user)
+        protocol = Protocol.objects.create(
+            organization=organization,
+            created_by=user,
+            code="P-COV",
+            name="Coverage Protocol",
+            product=product,
+            study_type="long_term",
+        )
+        version = ProtocolVersion.objects.create(
+            organization=organization,
+            created_by=user,
+            protocol=protocol,
+            version="1.0",
+        )
+        from services.signature_service import SignatureService
+
+        token = SignatureService.issue(user)
+        client = APIClient()
+        client.force_authenticate(user=user)
+        response = client.post(
+            f"/api/v1/stability/protocol-versions/{version.id}/transition/",
+            {"status": "approved", "comments": "Approved after QA review."},
+            format="json",
+            HTTP_X_SIGNATURE_TOKEN=token,
+        )
+        assert response.status_code == 200
+        version.refresh_from_db()
+        assert version.status == "approved"
+
+
+@pytest.mark.django_db
+def test_notification_task_creates_and_deduplicates_due_and_overdue_notifications():
+    owner = UserFactory()
+    organization = owner.memberships.select_related("organization").get().organization
+    product = ProductFactory(organization=organization, created_by=owner)
+    batch = Batch.objects.create(
+        organization=organization,
+        created_by=owner,
+        product=product,
+        batch_number="TASK-COVERAGE-001",
+        mfg_date=timezone.localdate() - timedelta(days=30),
+        expiry_date=timezone.localdate() + timedelta(days=365),
+        incubation_date=timezone.localdate() - timedelta(days=30),
+        study_type="long_term",
+        status="active",
+        shelf="TASK",
+        rack="1",
+        position="1",
+        qty_placed=10,
+        qty_remaining=10,
+    )
+    supervisor = __import__("apps.accounts.tests.factories", fromlist=["SupervisorFactory"]).SupervisorFactory()
+    today = timezone.localdate()
+    TestPointFactory(batch=batch, organization=organization, created_by=owner, status="pending", scheduled_date=today, month=1)
+    TestPointFactory(batch=batch, organization=organization, created_by=owner, status="overdue", scheduled_date=today - timedelta(days=2), month=3)
+
+    first = notify_upcoming_and_overdue_test_points.delay().get(timeout=10)
+    assert first == 2
+    assert Notification.objects.filter(organization=organization, user=supervisor).count() == 2
+
+    second = notify_upcoming_and_overdue_test_points.delay().get(timeout=10)
+    assert second == 0
+    assert Notification.objects.filter(organization=organization, user=supervisor).count() == 2
