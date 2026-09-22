@@ -305,6 +305,25 @@ def test_batch_model_enforces_date_and_quantity_invariants():
 
 
 @pytest.mark.django_db
+def test_tenant_domain_delete_soft_deactivates_record():
+    from apps.products.models import Product
+
+    user = UserFactory()
+    organization = user.memberships.select_related("organization").get().organization
+    product = ProductFactory(organization=organization, created_by=user)
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+    response = client.delete(f"/api/v1/products/{product.id}/")
+
+    assert response.status_code == 204
+    product.refresh_from_db()
+    assert product.is_active is False
+    assert product.id not in Product.objects.values_list("id", flat=True)
+    assert product.id in Product.all_objects.values_list("id", flat=True)
+
+
+@pytest.mark.django_db
 def test_cross_tenant_protocol_product_reference_is_rejected_before_create():
     organization_a, user_a, _ = make_org_user("protocol-a", "analyst")
     organization_b, user_b, _ = make_org_user("protocol-b", "analyst")
