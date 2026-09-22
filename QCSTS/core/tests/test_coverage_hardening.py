@@ -710,3 +710,38 @@ def test_tenant_scoped_viewset_get_queryset_is_tenant_scoped():
     view.queryset = Organization.objects.all()
     assert set(view.get_queryset().values_list("id", flat=True)) == {organization.id}
     assert other.id not in set(view.get_queryset().values_list("id", flat=True))
+
+
+@pytest.mark.django_db
+def test_notification_read_and_read_all_are_tenant_and_user_scoped():
+    user = UserFactory()
+    organization = user.memberships.select_related("organization").get().organization
+    other_user = UserFactory()
+    own = create_notification(
+        user=user,
+        organization=organization,
+        title="Own notification",
+        body="Own body",
+        send_email=False,
+    )
+    foreign_org = other_user.memberships.select_related("organization").get().organization
+    foreign = create_notification(
+        user=other_user,
+        organization=foreign_org,
+        title="Foreign notification",
+        body="Foreign body",
+        send_email=False,
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+    client.credentials(HTTP_X_ORGANIZATION_ID=str(organization.id))
+
+    read = client.post(f"/api/v1/notifications/{own.id}/read/")
+    assert read.status_code == 200
+    own.refresh_from_db()
+    assert own.read_at is not None
+
+    read_all = client.post("/api/v1/notifications/read-all/")
+    assert read_all.status_code == 200
+    assert Notification.objects.filter(pk=foreign.pk).exists()
+    assert read_all.data["updated"] == 0
