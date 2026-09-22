@@ -1,256 +1,189 @@
-# QC_System# CQSTS — QC Stability Tracking System
+# QCSTS — Quality Control & Stability Testing Management System
 
-> On-premises backend for pharmaceutical stability testing. GxP-compliant, ALCOA+ aligned, built with Django REST Framework.
+QCSTS is a multi-tenant SaaS platform for pharmaceutical organizations and laboratories. It connects controlled master data, stability studies, laboratory results, quality investigations, compliance evidence, billing and tenant administration in one backend-authoritative workflow.
 
----
+> **Validation posture:** QCSTS is designed for GxP-regulated environments with a validation-ready architecture. This wording does not claim that every deployment is automatically GxP compliant; deployment validation, SOPs, qualification and operational controls remain organization-specific.
 
-## What is CQSTS?
+## Architecture
 
-Pharmaceutical companies must prove that every drug batch remains effective and safe over time. This process — called **stability testing** — is required by law (ICH Q1A(R2)).
+Browser → Next.js 15 / React 19 → Django REST Framework → PostgreSQL
 
-CQSTS automates the entire workflow:
+Django also uses Redis + Celery for background work and Paymob at the payment boundary.
 
-```
-Product → Monograph → Batch → Auto-Generated Test Schedule → Results → Reports
-```
+The complete architecture is documented in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-When a batch is registered, the system automatically generates the full testing schedule. Analysts submit results with electronic signatures. QA managers review and approve. Everything is tracked, timestamped, and immutable.
+## Tenant model
 
----
+Organization is the paying tenant.
 
-## Key Features
+Organization
+- Sites
+- Memberships
+  - User
+  - Role
+  - Permissions
+- Subscription
+- Domain records
 
-- **Auto-generated test schedules** — ICH Q1A(R2) timepoints created automatically on batch registration
-- **Electronic signature** — analysts re-authenticate at the moment of result submission
-- **Role-based access** — admin, qa_manager, supervisor, analyst — permissions configurable per role
-- **Full audit trail** — every change tracked with who, what, when, old value, new value
-- **ALCOA+ compliance** — Attributable, Legible, Contemporaneous, Original, Accurate + Complete, Consistent, Enduring, Available
-- **On-premises** — no internet dependency, all data stays on the company server
-- **No direct DB edits** — all changes go through the API; audit table protected at DB level
+The security invariant is simple: a customer request is authorized from authenticated membership and backend tenant context. A UUID supplied by a browser never grants access by itself.
 
----
+## Domain applications
 
-## Tech Stack
-
-| Layer | Technology |
+| App | Responsibility |
 |---|---|
-| Framework | Django 4.2 + Django REST Framework 3.14 |
-| Authentication | JWT via `djangorestframework-simplejwt` |
-| Database | PostgreSQL 15 |
-| Cache / Queue broker | Redis 7 |
-| Task queue | Celery + Celery Beat |
-| API docs | drf-spectacular (Swagger UI) |
-| Testing | pytest + pytest-django + factory-boy + freezegun |
-| Deployment | Docker + docker-compose + Nginx + Gunicorn |
+| accounts | Identity, authentication, MFA, recovery and onboarding |
+| platform | Organization, site, membership, RBAC and tenant context |
+| products | Pharmaceutical product master data |
+| batches | Batch traceability |
+| stability | Study, protocol/version, specification/version, timepoint and sample workflow |
+| chamber | Chamber, storage and sample pulls |
+| results | Laboratory results and controlled review/approval |
+| quality | OOS, OOT, deviations, CAPA and change control |
+| schedule | Scheduled work and Celery tasks |
+| notifications | User workflow notifications |
+| audit | Append-only audit evidence |
+| compliance | Signatures, controlled records and validation evidence |
+| reports | Tenant-scoped analytics and exports |
+| billing | Plans, subscriptions, usage and entitlement enforcement |
 
----
+Each Django app now has its own README describing purpose, responsibilities, architecture, security and design invariants.
 
-## Project Structure
+## Controlled workflow
 
-```
-CQSTS/
-├── config/
-│   ├── settings/
-│   │   ├── base.py          # shared settings
-│   │   ├── production.py    # production overrides
-│   │   └── test.py          # test overrides (SQLite in-memory)
-│   ├── urls.py              # main URL router
-│   ├── celery.py            # Celery + Beat schedule
-│   └── wsgi.py
-│
-├── apps/
-│   ├── accounts/            # users, roles, JWT auth
-│   ├── audit/               # immutable audit trail
-│   ├── products/            # products + monographs
-│   ├── batches/             # batch registration
-│   ├── schedule/            # auto-generated test points
-│   ├── results/             # test result submission
-│   ├── chamber/             # sample storage + pulls
-│   └── reports/             # dashboard + exports
-│
-├── services/
-│   ├── schedule_engine.py   # generates ICH test points
-│   ├── signature_service.py # electronic signature logic
-│   ├── audit_service.py     # writes audit log entries
-│   └── outcome_evaluator.py # pass/fail calculation
-│
-├── core/
-│   ├── models.py            # BaseModel (UUID, timestamps, soft delete)
-│   ├── exceptions.py        # custom exceptions + global handler
-│   ├── permissions.py       # role-based permission classes
-│   └── responses.py         # standard API response envelope
-│
-├── constants/
-│   ├── stability.py         # ICH timepoints, study types, storage conditions
-│   └── permissions.py       # permission code constants
-│
-├── requirements/
-│   ├── base.txt
-│   ├── production.txt
-│   └── test.txt
-│
-├── docker/
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   └── nginx.conf
-│
-├── logs/
-├── manage.py
-├── pytest.ini
-└── .env.example
-```
+Product → Specification/TestDefinition → Batch → Study → ProtocolVersion → Timepoint → Sample → Result → Review → Approval/Lock
 
----
+Quality events, audit events and compliance evidence attach to the workflow without replacing the source records.
 
-## Roles & Permissions
+## Authentication and authorization
 
-| Role | Description |
-|---|---|
-| `admin` | Full access. Creates user accounts, manages system configuration. |
-| `qa_manager` | Approves monographs, views full audit trail, exports reports. |
-| `supervisor` | Counter-signs test results, oversees batches. |
-| `analyst` | Submits test results with electronic signature, records sample pulls. |
+- JWT access/refresh authentication.
+- Password recovery and email verification.
+- TOTP MFA support.
+- Login throttling and account controls.
+- Organization owner created by the backend during tenant onboarding.
+- Explicit tenant-aware API base classes.
+- Route-coverage tests requiring every API route to declare tenant posture.
+- Action-level RBAC.
+- Negative cross-tenant security tests.
 
-Permissions per role are **configurable by the admin** — not hardcoded. The admin assigns which actions each role can perform from within the system.
+## Billing
 
----
+Plan → Entitlement → Subscription → Usage
 
-## API Endpoints
+Subscription states include trialing, active, past_due, suspended and canceled. Paymob callbacks are treated as untrusted external input and require authenticity, amount/currency verification and idempotency.
 
-All endpoints return a standard envelope:
+## Audit and compliance
 
-```json
-{
-  "success": true,
-  "data": { },
-  "errors": null
-}
-```
+Important workflow actions produce audit evidence. Audit records have database-level immutability protection. Electronic signatures and controlled records are handled as evidence linked to the underlying business workflow.
 
-### Auth — `/api/v1/auth/`
+## Frontend
 
-| Method | Endpoint | Description | Permission |
-|---|---|---|---|
-| POST | `login/` | Get JWT tokens | Public |
-| POST | `logout/` | Blacklist refresh token | Authenticated |
-| GET | `me/` | Current user profile | Authenticated |
-| GET | `users/` | List all users | Admin |
-| POST | `users/` | Create user | Admin |
-| GET | `users/<id>/` | User detail | Admin |
-| PATCH | `users/<id>/` | Update user | Admin |
-| DELETE | `users/<id>/` | Deactivate user | Admin |
-| POST | `change-password/` | Change own password | Authenticated |
+The Next.js frontend provides:
+- Professional public landing page.
+- Product walkthrough animation.
+- Clear Sign in and Create workspace paths.
+- Multi-step tenant onboarding.
+- Authenticated tenant workspace.
+- Light/dark mode.
+- Responsive layouts and reduced-motion support.
+- Stability, results, quality, compliance, reporting, administration and billing surfaces.
 
-### Audit — `/api/v1/audit/`
+See [frontend/README.md](../frontend/README.md).
 
-| Method | Endpoint | Description | Permission |
-|---|---|---|---|
-| GET | `/` | Full audit trail (filterable) | QA Manager + |
-| GET | `<id>/` | Single audit entry | QA Manager + |
+## CI/CD release gates
 
----
+GitHub Actions currently validate:
+1. Python dependency integrity.
+2. Django system checks.
+3. Production deployment checks.
+4. Migration synchronization.
+5. Backend tests and coverage threshold.
+6. Frontend no-demo checks.
+7. TypeScript typecheck.
+8. Next.js production build.
+9. Frontend route smoke tests.
+10. Backend and frontend container builds.
+11. Production compose configuration/build.
+12. Database backup/restore verification.
 
-## Stability Study Types
+The release gate is evidence, not a substitute for production deployment verification.
 
-| Study Type | Storage Condition | Test Months |
-|---|---|---|
-| Long Study | 25°C / 60% RH | 0, 3, 6, 9, 12, 18, 24, 36 |
-| Accelerated Study | 40°C / 75% RH | 0, 3, 6 |
+## Development
 
----
+Backend:
 
-## Getting Started
+    cd QCSTS
+    pip install -r requirements/test.txt
+    python manage.py check
+    python manage.py migrate
+    pytest
 
-### Prerequisites
+Frontend:
 
-- Python 3.11+
-- Docker Desktop (recommended) or PostgreSQL + Redis installed locally
+    cd frontend
+    npm ci
+    npm run check:no-demo
+    npm run typecheck
+    npm run build
+    npm run check:routes
 
-### 1. Clone and set up environment
+Docker:
 
-```bash
-git clone https://github.com/MedixAI/CQSTS.git
-cd CQSTS
-python -m venv venv
-venv\Scripts\activate        # Windows
-pip install -r requirements/test.txt
-```
+    docker compose -f QCSTS/docker/docker-compose.yml up --build
 
-### 2. Configure environment
+Production configuration must use the production environment template and real secret management. Never commit real secrets.
 
-```bash
-cp .env.example .env
-# Edit .env with your values
-```
+## Testing philosophy
 
-Required `.env` variables:
+QCSTS treats negative security tests as first-class tests.
 
-```
-DJANGO_SECRET_KEY=your-secret-key-here
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/cqsts_db
-REDIS_URL=redis://127.0.0.1:6379/0
-CORS_ALLOWED_ORIGINS=http://localhost:3000
-CELERY_BEAT_TIMEZONE=Africa/Cairo
-```
+A passing happy-path test is not enough. The suite must prove that:
+- one tenant cannot read another tenant;
+- one tenant cannot mutate another tenant;
+- users cannot invent roles or memberships;
+- locked results cannot be rewritten;
+- audit records cannot be modified;
+- reports cannot aggregate unauthorized data;
+- billing callbacks cannot forge subscription state.
 
-### 3. Run migrations and create superuser
+## Current readiness interpretation
 
-```bash
-python manage.py migrate
-python manage.py createsuperuser
-```
+A software project should not be called “100% production ready” merely because all planned files exist. QCSTS therefore distinguishes implementation completeness from runtime evidence.
 
-### 4. Run the development server
+Current assessment on the audited repository state:
 
-```bash
-python manage.py runserver
-```
+- Product/domain implementation: **88%**
+- Tenant isolation/RBAC: **91%**
+- Authentication/security: **88%**
+- Stability/results workflow: **86%**
+- Billing/entitlements/Paymob: **84%**
+- Audit/compliance evidence: **82%**
+- Frontend/API integration: **84%**
+- Testing/security evidence: **83%**
+- CI/CD/release engineering: **91%**
+- Operations/DR/observability: **76%**
+- Documentation: **92%**
+- Validation/UAT evidence: **65%**
 
-API docs available at: `http://localhost:8000/api/docs/`
+**Overall engineering completeness: ~85%.**
 
-### 5. Run tests
+The remaining percentage is deliberately not treated as “missing code” alone. The largest remaining evidence gaps are real deployed-environment verification, full end-to-end tenant/security evidence, observability, backup/restore evidence against the actual production stack, and formal validation/UAT evidence.
 
-```bash
-pytest
-```
+## Documentation map
 
----
-
-## Data Integrity — ALCOA+ Compliance
-
-| Principle | Implementation |
-|---|---|
-| **Attributable** | Every record has `created_by` FK. Every audit entry has `performed_by`. |
-| **Legible** | All data stored as structured fields, never free text blobs. |
-| **Contemporaneous** | `created_at` and `updated_at` set server-side via `auto_now_add` / `auto_now`. |
-| **Original** | `specification_snapshot` copied at time of result submission. |
-| **Accurate** | Electronic signature required for result submission. |
-| **Complete** | All test points must have results before batch is marked complete. |
-| **Consistent** | UTC timezone enforced system-wide. |
-| **Enduring** | Soft delete only — no record is ever hard deleted. |
-| **Available** | Full audit trail queryable by QA managers at any time. |
-
----
-
-## Git Branch Strategy
-
-```
-main                  ← stable releases only
-└── dev_back_end      ← integration branch
-    ├── feat/accounts
-    ├── feat/products
-    ├── feat/batches
-    └── ...
-```
-
-Commit message format: `type(scope): description`
-
-Types: `feat`, `fix`, `test`, `docs`, `chore`, `refactor`
-
----
-
-## License
-
-Proprietary — MedixAI. All rights reserved.
+- [Backend architecture](ARCHITECTURE.md)
+- [Frontend architecture](../frontend/README.md)
+- [Accounts](apps/accounts/README.md)
+- [Audit](apps/audit/README.md)
+- [Batches](apps/batches/README.md)
+- [Billing](apps/billing/README.md)
+- [Chamber](apps/chamber/README.md)
+- [Compliance](apps/compliance/README.md)
+- [Notifications](apps/notifications/README.md)
+- [Platform](apps/platform/README.md)
+- [Products](apps/products/README.md)
+- [Quality](apps/quality/README.md)
+- [Reports](apps/reports/README.md)
+- [Results](apps/results/README.md)
+- [Schedule](apps/schedule/README.md)
+- [Stability](apps/stability/README.md)
