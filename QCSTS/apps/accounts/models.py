@@ -117,6 +117,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             return False
         for offset in (-1, 0, 1):
             moving = counter + offset
+            if moving < 0:
+                continue
             digest = hmac.new(key, struct.pack(">Q", moving), hashlib.sha1).digest()
             index = digest[-1] & 0x0F
             binary = (
