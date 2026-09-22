@@ -78,6 +78,12 @@ class AuditLog(models.Model):
         """
         if self.pk and AuditLog.objects.filter(pk=self.pk).exists():
             raise PermissionError("Audit log records cannot be modified.")
+        if self.organization_id and self.performed_by_id:
+            if not self.performed_by.memberships.filter(
+                organization_id=self.organization_id,
+                is_active=True,
+            ).exists():
+                raise PermissionError("Audit actor must be an active member of the organization.")
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
