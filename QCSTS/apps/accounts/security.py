@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 @transaction.atomic
@@ -13,3 +14,11 @@ def revoke_user_sessions(user):
     outstanding = OutstandingToken.objects.filter(user=user)
     for token in outstanding.iterator():
         BlacklistedToken.objects.get_or_create(token=token)
+
+
+def issue_tokens(user):
+    """Issue application JWTs carrying the exact password-change version."""
+    refresh = RefreshToken.for_user(user)
+    if user.password_changed_at is not None:
+        refresh["pwd_changed_at"] = user.password_changed_at.isoformat()
+    return refresh
