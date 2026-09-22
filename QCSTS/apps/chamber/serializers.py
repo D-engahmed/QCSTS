@@ -109,7 +109,7 @@ class LocationHistorySerializer(serializers.ModelSerializer):
             "old_position",
         ]
 
-    def get_batch_number(self, obj):
+    def get_batch_number(self, obj) -> str:
         return obj.batch.batch_number
 
 
