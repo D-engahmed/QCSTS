@@ -5,11 +5,7 @@ from django.core.exceptions import ValidationError
 from rest_framework.test import APIRequestFactory
 
 from apps.accounts.tests.factories import AdminFactory
-from apps.platform.permissions import HasTenantContext
-from apps.stability.api import (
-    StabilityPermissionByAction,
-    StabilityTenantViewSet,
-)
+from apps.stability.api import StabilityPermissionByAction, StabilityTenantViewSet
 from apps.stability.models import (
     ProtocolVersion, SpecificationVersion, StabilitySample,
     StabilityStudy, StorageCondition, StudyTimepoint,
@@ -51,15 +47,11 @@ def test_stability_permission_by_action_delegates():
 
 
 def test_storage_condition_validation():
-    condition = StorageCondition(
-        code="40C", name="40C", temperature_min_c=50, temperature_max_c=40,
-    )
+    condition = StorageCondition(code="40C", name="40C", temperature_min_c=50, temperature_max_c=40)
     with patch("apps.stability.models.BaseModel.save"):
         with pytest.raises(ValidationError):
             condition.save()
-    condition = StorageCondition(
-        code="RH", name="Humidity", humidity_min_rh=90, humidity_max_rh=50,
-    )
+    condition = StorageCondition(code="RH", name="Humidity", humidity_min_rh=90, humidity_max_rh=50)
     with patch("apps.stability.models.BaseModel.save"):
         with pytest.raises(ValidationError):
             condition.save()
@@ -76,7 +68,7 @@ def test_stability_transition_and_soft_delete():
     view.get_serializer = MagicMock(return_value=MagicMock(data={"status": obj.status}))
     obj.save = MagicMock()
 
-    request = factory.post("/transition/", {"status": "planned"}, format="json")
+    request = factory.post("/transition/", {"status": "planned", "comments": "Plan study"}, format="json")
     request.user = user
     request.organization = org
     with patch("apps.stability.api.AuditService.log"):
@@ -84,18 +76,15 @@ def test_stability_transition_and_soft_delete():
     assert response.status_code == 200
     assert obj.status == "planned"
 
-    request = factory.post("/transition/", {"status": "active", "comments": "Start"}, format="json")
+    obj.status = "planned"
+    request = factory.post("/transition/", {"status": "active", "comments": "Start study"}, format="json")
     request.user = user
     request.organization = org
-    obj.status = "planned"
-    with patch("apps.stability.api.AuditService.log"),          patch("apps.stability.api.SignatureService.validate", return_value=True),          patch("apps.stability.api.ElectronicSignature.issue"):
-        request.META["HTTP_X_SIGNATURE_TOKEN"] = "sig"
+    with patch("apps.stability.api.AuditService.log"):
         response = view.transition(request, pk="1")
     assert response.status_code == 200
+    assert obj.status == "active"
 
     obj.soft_delete = MagicMock()
-    request = factory.delete("/1/")
-    request.user = user
-    request.organization = org
     view.perform_destroy(obj)
     obj.soft_delete.assert_called_once()
