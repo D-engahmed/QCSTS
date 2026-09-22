@@ -97,6 +97,16 @@ class TenantScopedModelViewSet(ModelViewSet):
     tenant_scoped = True
     billing_required = True
 
+    def perform_destroy(self, instance):
+        if hasattr(instance, "soft_delete"):
+            instance.soft_delete(
+                deleted_by=self.request.user,
+                ip_address=self.request.META.get("REMOTE_ADDR"),
+                notes="Record retired through tenant API.",
+            )
+            return
+        super().perform_destroy(instance)
+
     def perform_authentication(self, request):
         super().perform_authentication(request)
         if request.user and request.user.is_authenticated:
