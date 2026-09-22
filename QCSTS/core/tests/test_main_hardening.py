@@ -132,6 +132,28 @@ def test_selected_site_requires_explicit_membership():
 
 
 @pytest.mark.django_db
+def test_inactive_default_site_is_not_returned_as_tenant_context():
+    user = UserFactory()
+    membership = user.memberships.select_related("organization").get()
+    organization = membership.organization
+    site = Site.objects.create(
+        organization=organization,
+        name="Inactive Default",
+        country="EG",
+        status=Site.Status.INACTIVE,
+    )
+    membership.default_site = site
+    membership.save()
+
+    request = APIRequestFactory().get("/")
+    request.user = user
+
+    TenantContextService.resolve(request)
+    assert request.organization == organization
+    assert request.site is None
+
+
+@pytest.mark.django_db
 def test_corrupt_mfa_ciphertext_fails_closed():
     user = UserFactory()
     user.mfa_enabled = True
@@ -315,13 +337,7 @@ def test_invoice_rejects_cross_organization_subscription():
     organization_a, user_a, _ = make_org_user("invoice-a")
     organization_b, _, _ = make_org_user("invoice-b")
 
-    plan = Plan.objects.get(code=Plan.Code.ESSENTIAL)
-    subscription_b = Subscription.objects.create(
-        organization=organization_b,
-        plan=plan,
-        status=Subscription.Status.TRIALING,
-        interval=Subscription.Interval.MONTH,
-    )
+    subscription_b = Subscription.objects.get(organization=organization_b)
 
     with pytest.raises(ValidationError, match="Invoice subscription"):
         Invoice.objects.create(
@@ -336,8 +352,6 @@ def test_invoice_rejects_cross_organization_subscription():
 
 @pytest.mark.django_db
 def test_password_change_revokes_existing_jwt_sessions():
-    from apps.accounts.views import ChangePasswordView
-
     user = CustomUser.objects.create_user(
         email="session-hardening@qcsts.test",
         password="Initial-password-123",
