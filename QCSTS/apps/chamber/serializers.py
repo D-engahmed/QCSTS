@@ -23,7 +23,7 @@ class SamplePullSerializer(TenantScopedModelSerializer):
         ]
         read_only_fields = ["id", "pulled_by", "pulled_at"]
 
-    def get_batch_number(self, obj):
+    def get_batch_number(self, obj) -> str:
         return obj.batch.batch_number
 
     def validate(self, data):
