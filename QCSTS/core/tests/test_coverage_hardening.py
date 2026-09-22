@@ -745,3 +745,27 @@ def test_notification_read_and_read_all_are_tenant_and_user_scoped():
     assert read_all.status_code == 200
     assert Notification.objects.filter(pk=foreign.pk).exists()
     assert read_all.data["updated"] == 0
+
+
+@pytest.mark.django_db
+def test_mark_overdue_task_keeps_processing_when_batch_recalculation_fails(monkeypatch):
+    from datetime import date
+    from apps.batches.tests.factories import BatchFactory
+    from apps.schedule.models import TestPoint
+    from apps.schedule.tasks import mark_overdue_test_points
+
+    batch = BatchFactory()
+    TestPoint.objects.create(
+        organization=batch.organization,
+        created_by=batch.created_by,
+        batch=batch,
+        month=99,
+        scheduled_date=date.today() - timedelta(days=2),
+        status="pending",
+    )
+
+    def fail_recalculation(self, *args, **kwargs):
+        raise RuntimeError("simulated recalculation failure")
+
+    monkeypatch.setattr("apps.batches.models.Batch.update_status_from_test_points", fail_recalculation)
+    assert mark_overdue_test_points.run() == 1
