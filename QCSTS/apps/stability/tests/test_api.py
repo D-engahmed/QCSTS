@@ -50,8 +50,8 @@ def test_stability_storage_conditions_are_tenant_scoped():
     response = client.get("/api/v1/stability/storage-conditions/")
 
     assert response.status_code == 200
-    ids = {item["id"] for item in response.data["results"]} if isinstance(response.data.get("results"), list) else {
-        item["id"] for item in response.data["data"]
-    }
+    payload = response.data
+    items = payload if isinstance(payload, list) else payload.get("results", payload.get("data", []))
+    ids = {item["id"] for item in items}
     assert str(first_condition.id) in ids
     assert str(second_condition.id) not in ids

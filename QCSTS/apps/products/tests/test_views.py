@@ -11,7 +11,8 @@ from apps.accounts.tests.factories import (
     AdminFactory,
     QAManagerFactory,
 )
-from apps.platform.models import Membership, Organization, Role
+from apps.platform.models import Organization
+from services.signature_service import SignatureService
 
 
 def auth_client(user):
@@ -77,7 +78,12 @@ class TestMonographViews:
         qa = QAManagerFactory()
         monograph = MonographFactory()
         c = auth_client(qa)
-        response = c.post(f"/api/v1/products/monographs/{monograph.id}/approve/")
+        token = SignatureService.issue(qa)
+        response = c.post(
+            f"/api/v1/products/monographs/{monograph.id}/approve/",
+            {"reason": "Approved after QA review."},
+            HTTP_X_SIGNATURE_TOKEN=token,
+        )
         assert response.status_code == 200
         assert response.data["data"]["status"] == "approved"
 
@@ -192,10 +198,9 @@ class TestProductViews:
 
     def test_cross_tenant_product_lookup_is_rejected(self):
         analyst = UserFactory()
-        org_a = Organization.objects.create(name="Alpha Pharma", slug="alpha", country="EG")
+        membership = analyst.memberships.select_related("organization").get()
+        org_a = membership.organization
         org_b = Organization.objects.create(name="Beta Pharma", slug="beta", country="EG")
-        role_a = Role.objects.create(organization=org_a, name="Analyst")
-        Membership.objects.create(user=analyst, organization=org_a, role=role_a, default_site=None)
 
         product_b = ProductFactory(organization=org_b)
         c = auth_client(analyst)
