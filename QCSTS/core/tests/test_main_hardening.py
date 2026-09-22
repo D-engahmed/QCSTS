@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import UserSerializer
@@ -303,6 +304,42 @@ def test_cross_tenant_protocol_product_reference_is_rejected_before_create():
     )
 
     assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_password_change_revokes_existing_jwt_sessions():
+    from apps.accounts.views import ChangePasswordView
+
+    user = CustomUser.objects.create_user(
+        email="session-hardening@qcsts.test",
+        password="Initial-password-123",
+        full_name="Session Hardening",
+        role="analyst",
+    )
+    refresh = RefreshToken.for_user(user)
+    access = str(refresh.access_token)
+
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+    response = client.post(
+        "/api/v1/auth/change-password/",
+        {
+            "current_password": "Initial-password-123",
+            "new_password": "Replacement-password-456",
+        },
+        format="json",
+    )
+    assert response.status_code == 200
+
+    protected = client.get("/api/v1/auth/me/")
+    assert protected.status_code == 401
+
+    refresh_response = APIClient().post(
+        "/api/v1/auth/token/refresh/",
+        {"refresh": str(refresh)},
+        format="json",
+    )
+    assert refresh_response.status_code == 401
 
 
 @pytest.mark.django_db
