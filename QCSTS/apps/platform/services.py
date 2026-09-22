@@ -61,7 +61,11 @@ class TenantContextService:
     def _resolve_site(membership, requested_site_id):
         if not requested_site_id:
             site = membership.default_site
-            if site and site.status != Site.Status.ACTIVE:
+            if (
+                site is None
+                or site.status != Site.Status.ACTIVE
+                or not membership.sites.filter(id=site.id).exists()
+            ):
                 return None
             return site
 
