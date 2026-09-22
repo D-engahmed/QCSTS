@@ -1,5 +1,8 @@
 # Keep the Notification model state synchronized with the current BaseModel field metadata.
-import uuid\n\nfrom django.db import migrations, models\nimport django.db.models.deletion
+import uuid
+
+import django.db.models.deletion
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
@@ -55,7 +58,7 @@ class Migration(migrations.Migration):
                 blank=True,
                 db_index=True,
                 null=True,
-                on_delete=models.deletion.PROTECT,
+                on_delete=django.db.models.deletion.PROTECT,
                 related_name="notifications_notification_records",
                 to="platform.organization",
             ),
