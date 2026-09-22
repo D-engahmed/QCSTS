@@ -20,6 +20,7 @@ class SiteSerializer(serializers.ModelSerializer):
 
 
 class OrganizationViewSet(TenantExemptViewSet):
+    queryset = Organization.objects.none()
     """Organization discovery is membership-scoped and intentionally does not require a selected tenant."""
 
     permission_classes = []
