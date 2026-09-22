@@ -140,6 +140,15 @@ class PaymentEvent(models.Model):
         indexes = [models.Index(fields=["organization", "processed"])]
 
 
+    def save(self, *args, **kwargs):
+        if self.pk:
+            existing = PaymentEvent.objects.filter(pk=self.pk).only("organization_id").first()
+            if existing and existing.organization_id != self.organization_id:
+                raise ValidationError(
+                    {"organization": "A payment event cannot be reassigned to another organization."}
+                )
+        super().save(*args, **kwargs)
+
 class UsageRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey("platform.Organization", on_delete=models.PROTECT, related_name="usage_records")
