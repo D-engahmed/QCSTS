@@ -93,7 +93,7 @@ class UserSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
-    def get_organization_role(self, obj):
+    def get_organization_role(self, obj) -> str | None:
         organization = self.context.get("organization")
         if organization is None:
             return None
@@ -103,7 +103,7 @@ class UserSerializer(serializers.ModelSerializer):
         ).select_related("role").first()
         return membership.role.name if membership else None
 
-    def get_organization_site(self, obj):
+    def get_organization_site(self, obj) -> dict[str, str] | None:
         organization = self.context.get("organization")
         if organization is None:
             return None
