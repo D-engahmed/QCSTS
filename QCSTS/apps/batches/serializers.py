@@ -56,7 +56,10 @@ class BatchSerializer(TenantScopedModelSerializer):
         return obj.get_location()
 
     def validate_batch_number(self, value):
-        if Batch.all_objects.filter(batch_number=value).exists():
+        queryset = Batch.all_objects.filter(batch_number=value)
+        if self.instance is not None:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
             raise DuplicateBatchNumber()
         return value
 
