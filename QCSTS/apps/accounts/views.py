@@ -59,6 +59,7 @@ class LoginView(PublicAPIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
 
+    @transaction.atomic
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -320,6 +321,7 @@ class ChangePasswordView(TenantExemptAPIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(operation_id="change_password", request=ChangePasswordSerializer, responses=OpenApiTypes.OBJECT)
+    @transaction.atomic
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
