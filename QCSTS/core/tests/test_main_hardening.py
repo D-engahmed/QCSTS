@@ -18,6 +18,7 @@ from apps.products.tests.factories import ProductFactory
 from apps.stability.models import StorageCondition
 from apps.quality.models import Deviation
 from core.permissions import IsAdmin
+, DenyTenantAction
 
 
 def make_org_user(slug, role_name="admin"):
@@ -523,6 +524,88 @@ def test_password_change_revokes_existing_jwt_sessions():
         format="json",
     )
     assert refresh_response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_membership_cannot_add_foreign_organization_site():
+    organization_a, user, membership = make_org_user("membership-sites-a")
+    organization_b, _, _ = make_org_user("membership-sites-b")
+    foreign_site = Site.objects.create(
+        organization=organization_b,
+        name="Foreign Membership Site",
+        country="EG",
+    )
+
+    with pytest.raises(ValidationError, match="membership organization"):
+        membership.sites.add(foreign_site)
+
+
+@pytest.mark.django_db
+def test_quality_unknown_action_fails_closed():
+    from apps.quality.views import QualityTenantViewSet
+
+    view = QualityTenantViewSet()
+    view.action = "future_action"
+    view.request = APIRequestFactory().get("/")
+    permissions = view.get_permissions()
+    assert len(permissions) == 1
+    assert isinstance(permissions[0], DenyTenantAction)
+    assert permissions[0].has_permission(view.request, view) is False
+
+
+@pytest.mark.django_db
+def test_stability_unknown_action_fails_closed():
+    from apps.stability.api import StabilityTenantViewSet
+
+    view = StabilityTenantViewSet()
+    view.action = "future_action"
+    view.request = APIRequestFactory().get("/")
+    permissions = view.get_permissions()
+    assert len(permissions) == 1
+    assert permissions[0].has_permission(view.request, view) is False
+
+
+@pytest.mark.django_db
+def test_audit_actor_must_belong_to_audit_organization():
+    user_a = UserFactory()
+    organization_a = user_a.memberships.select_related("organization").get().organization
+    user_b = UserFactory()
+
+    with pytest.raises(ValidationError, match="audit actor"):
+        AuditLog.objects.create(
+            organization=organization_a,
+            performed_by=user_b,
+            action="UPDATE",
+            model_name="Batch",
+            object_id="1",
+            object_repr="foreign actor",
+        )
+
+
+@pytest.mark.django_db
+def test_soft_delete_rolls_back_when_audit_write_fails(monkeypatch):
+    user = QAManagerFactory()
+    organization = user.memberships.select_related("organization").get().organization
+    deviation = Deviation.objects.create(
+        organization=organization,
+        created_by=user,
+        owner=user,
+        reference="DELETE-AUDIT-FAIL-001",
+        title="Audit failure",
+        description="Audit failure must prevent retirement.",
+        status="open",
+    )
+
+    def fail_audit(*args, **kwargs):
+        raise RuntimeError("simulated audit failure")
+
+    monkeypatch.setattr("apps.audit.models.AuditLog.objects.create", fail_audit)
+
+    with pytest.raises(Exception):
+        deviation.soft_delete(deleted_by=user)
+
+    deviation.refresh_from_db()
+    assert deviation.is_active is True
 
 
 @pytest.mark.django_db
