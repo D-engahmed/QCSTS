@@ -8,7 +8,7 @@ from apps.schedule.models import TestPoint
 from apps.results.models import TestResult
 from apps.quality.models import OOSInvestigation, OOTInvestigation, Deviation, CAPA, ChangeControl
 from core.permissions import IsAnalystOrAbove
-from core.responses import success_response
+from core.responses import error_response, success_response
 
 
 class DashboardView(TenantScopedAPIView):
@@ -114,5 +114,5 @@ class CSVExportView(TenantScopedAPIView):
                 for row in model.objects.filter(organization=org, is_active=True).select_related("owner").iterator():
                     writer.writerow([model.__name__, row.id, row.reference, row.title, row.severity, row.status, row.owner.email if row.owner else "", row.due_at.isoformat() if row.due_at else ""])
         else:
-            return success_response({"detail": "Unsupported resource. Use results, batches, test-points, or quality."}, status_code=400)
+            return error_response({"resource": ["Unsupported resource. Use results, batches, test-points, or quality."]}, status_code=400)
         return response
