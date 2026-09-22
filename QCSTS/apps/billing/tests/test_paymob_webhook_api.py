@@ -78,6 +78,32 @@ class PaymobWebhookAPITests(TestCase):
         signature = signature or calculate_transaction_hmac(obj, self.secret)
         return {"obj": obj, "hmac": signature}
 
+    def test_malformed_nested_payload_does_not_raise_500(self):
+        obj = {**self.obj, "order": ["not", "a", "dict"]}
+        response = self.client.post(
+            "/api/v1/billing/webhooks/paymob/transaction/",
+            self.payload(obj),
+            format="json",
+        )
+        self.assertIn(response.status_code, {400, 403})
+
+        obj = {**self.obj, "source_data": ["not", "a", "dict"]}
+        response = self.client.post(
+            "/api/v1/billing/webhooks/paymob/transaction/",
+            self.payload(obj),
+            format="json",
+        )
+        self.assertIn(response.status_code, {400, 403})
+
+    def test_non_numeric_amount_is_rejected_without_500(self):
+        obj = {**self.obj, "amount_cents": "not-a-number"}
+        response = self.client.post(
+            "/api/v1/billing/webhooks/paymob/transaction/",
+            self.payload(obj),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_invalid_hmac_is_rejected(self):
         response = self.client.post(
             "/api/v1/billing/webhooks/paymob/transaction/",
@@ -122,6 +148,34 @@ class PaymobWebhookAPITests(TestCase):
         self.assertEqual(self.invoice.provider_transaction_id, "12345")
         self.assertEqual(self.subscription.status, Subscription.Status.ACTIVE)
         self.assertEqual(PaymentEvent.objects.count(), 1)
+
+    def test_payment_event_cannot_cross_organizations(self):
+        from apps.billing.services import BillingService
+        from django.core.exceptions import PermissionDenied
+
+        other = Organization.objects.create(
+            name="Other Paymob Pharma",
+            slug="other-paymob-pharma",
+            country="EG",
+            currency="EGP",
+        )
+        event, created = BillingService.process_payment_event(
+            organization=self.org,
+            provider="paymob",
+            event_id="shared-event-001",
+            event_type="transaction",
+            payload={"source": "test"},
+        )
+        self.assertTrue(created)
+
+        with self.assertRaises(PermissionDenied):
+            BillingService.process_payment_event(
+                organization=other,
+                provider="paymob",
+                event_id="shared-event-001",
+                event_type="transaction",
+                payload={"source": "cross-tenant"},
+            )
 
     def test_duplicate_event_is_idempotent(self):
         payload = self.payload()
