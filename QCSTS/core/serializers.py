@@ -77,8 +77,29 @@ class TenantScopedModelSerializer(serializers.ModelSerializer):
     # structural test in core/tests/test_serializer_tenant_scoping.py fails
     # the build if a new organization-owned model's FK field is left off it.
     TENANT_OWNED_MODELS = {
-        "Batch", "Product", "Monograph", "MonographTest",
-        "TestPoint", "TestResult", "SamplePull",
+        # Core tenant-owned domain models.
+        "Batch",
+        "Product",
+        "Monograph",
+        "MonographTest",
+        "TestPoint",
+        "TestResult",
+        "SamplePull",
+        # Platform / stability / quality references must be scoped too.
+        "Site",
+        "Protocol",
+        "ProtocolVersion",
+        "Specification",
+        "SpecificationVersion",
+        "StabilityStudy",
+        "StudyBatch",
+        "StudyTimepoint",
+        "StabilitySample",
+        "StorageCondition",
+        "OOSInvestigation",
+        "OOTInvestigation",
+        "Deviation",
+        "CAPA",
     }
 
     def __init__(self, *args, **kwargs):
