@@ -94,8 +94,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose -f QCSTS/docker/docker-compose.production.yml config
-      - run: docker compose -f QCSTS/docker/docker-compose.production.yml build --pull
+      - name: Create CI-only production environment
+        run: |
+          cat > QCSTS/.env <<'EOF'
+          POSTGRES_USER=qcsts
+          POSTGRES_PASSWORD=ci-postgres-password
+          POSTGRES_DB=qcsts
+          REDIS_PASSWORD=ci-redis-password
+          DJANGO_SECRET_KEY=ci-production-secret
+          DATABASE_URL=postgresql://qcsts:ci-postgres-password@db:5432/qcsts
+          REDIS_URL=redis://:ci-redis-password@redis:6379/0
+          CELERY_BROKER_URL=redis://:ci-redis-password@redis:6379/0
+          CELERY_RESULT_BACKEND=redis://:ci-redis-password@redis:6379/0
+          ALLOWED_HOSTS=localhost
+          DEBUG=False
+          PAYMOB_HMAC_SECRET=ci-paymob-secret
+          MFA_ENCRYPTION_KEY=FNO0V6hoFD3uOI4ZhQbR_rV7bBbiEUdZaz0o-jRM7Lg=
+          EOF
+      - run: docker compose --env-file QCSTS/.env -f QCSTS/docker/docker-compose.production.yml config
+      - run: docker compose --env-file QCSTS/.env -f QCSTS/docker/docker-compose.production.yml build --pull
 
   recovery:
     name: Backup and restore verification

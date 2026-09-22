@@ -36,6 +36,7 @@ class AnalyticsView(TenantScopedAPIView):
             .values("month_bucket", "status")
             .annotate(count=Count("id"))
             .order_by("month_bucket", "status")
+
         )
 
         quality_models = [
@@ -64,6 +65,7 @@ class AnalyticsView(TenantScopedAPIView):
                 "test_points": [
                     {
                         "month": row["month_bucket"].date().isoformat() if row["month_bucket"] else None,
+
                         "status": row["status"],
                         "count": row["count"],
                     }
