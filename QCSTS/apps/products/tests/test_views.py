@@ -192,10 +192,9 @@ class TestProductViews:
 
     def test_cross_tenant_product_lookup_is_rejected(self):
         analyst = UserFactory()
-        org_a = Organization.objects.create(name="Alpha Pharma", slug="alpha", country="EG")
+        membership = analyst.memberships.select_related("organization").get()
+        org_a = membership.organization
         org_b = Organization.objects.create(name="Beta Pharma", slug="beta", country="EG")
-        role_a = Role.objects.create(organization=org_a, name="Analyst")
-        Membership.objects.create(user=analyst, organization=org_a, role=role_a, default_site=None)
 
         product_b = ProductFactory(organization=org_b)
         c = auth_client(analyst)
