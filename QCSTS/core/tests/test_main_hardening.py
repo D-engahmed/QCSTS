@@ -68,6 +68,25 @@ def make_org_user(slug, role_name="admin"):
 
 
 @pytest.mark.django_db
+def test_every_base_model_has_active_and_all_object_managers():
+    from django.apps import apps
+    from core.models import ActiveManager, BaseModel
+
+    for model in apps.get_models():
+        if model._meta.abstract or not issubclass(model, BaseModel):
+            continue
+
+        assert isinstance(
+            model._default_manager,
+            ActiveManager,
+        ), f"{model.__name__} must hide inactive rows through its default manager."
+        assert hasattr(
+            model,
+            "all_objects",
+        ), f"{model.__name__} must expose an all_objects manager for audit/history access."
+
+
+@pytest.mark.django_db
 def test_membership_save_rejects_role_from_another_organization():
     organization_a, user, _ = make_org_user("membership-a")
     organization_b, _, _ = make_org_user("membership-b")
