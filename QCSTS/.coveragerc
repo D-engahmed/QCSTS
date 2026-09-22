@@ -9,6 +9,7 @@ source =
 omit =
     */migrations/*
     */tests/*
+    */tests.py
     */test_*.py
     */tests_*.py
     */conftest.py
@@ -16,3 +17,6 @@ omit =
     */apps.py
     */wsgi.py
     */asgi.py
+    manage.py
+    config/settings/*
+    constants/*
