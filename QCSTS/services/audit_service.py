@@ -12,8 +12,7 @@ class AuditService:
     Rules:
     - Called by every service that modifies data
     - Never called directly from views
-    - If audit writing fails, it logs to file but never
-      blocks the primary operation (non-fatal)
+    - Audit persistence is fail-closed for security-critical operations.
 
     Usage:
         AuditService.log(
