@@ -2,9 +2,10 @@ from rest_framework import serializers
 from apps.results.models import TestResult, ResultReview, ResultCorrection
 from apps.schedule.models import TestPoint
 from core.exceptions import ResultAlreadySubmitted
+from core.serializers import TenantScopedModelSerializer
 from services.outcome_evaluator import OutcomeEvaluator
 
-class TestResultSerializer(serializers.ModelSerializer):
+class TestResultSerializer(TenantScopedModelSerializer):
     analyst_name = serializers.SerializerMethodField()
     test_name = serializers.SerializerMethodField()
     workflow_state = serializers.SerializerMethodField()
@@ -36,14 +37,6 @@ class TestResultSerializer(serializers.ModelSerializer):
             "workflow_state",
             "organization"
         ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        request = self.context.get("request")
-        if request and getattr(request, "organization", None):
-            org = request.organization
-            self.fields["test_point"].queryset = self.fields["test_point"].queryset.filter(organization=org)
-            self.fields["monograph_test"].queryset = self.fields["monograph_test"].queryset.filter(organization=org)
 
     def get_analyst_name(self, obj):
         return obj.analyst.full_name if obj.analyst else None
