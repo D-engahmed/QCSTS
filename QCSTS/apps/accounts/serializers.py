@@ -2,6 +2,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from rest_framework import serializers
 
 from apps.accounts.models import CustomUser
+from apps.platform.models import Site
 from core.exceptions import InvalidCredentialsError
 
 # Burned once on every unknown-email login so that the response time does not
@@ -110,6 +111,7 @@ class UserSerializer(serializers.ModelSerializer):
         membership = obj.memberships.filter(
             organization=organization,
             is_active=True,
+            default_site__status=Site.Status.ACTIVE,
         ).select_related("default_site").first()
         if not membership or not membership.default_site:
             return None
