@@ -151,6 +151,12 @@ def test_selected_site_requires_explicit_membership():
     with pytest.raises(PermissionDenied, match="access to this site"):
         TenantContextService.resolve(request)
 
+    membership.sites.add(forbidden)
+    request = APIRequestFactory().get("/", HTTP_X_SITE_ID=str(forbidden.id))
+    request.user = user
+    TenantContextService.resolve(request)
+    assert request.site == forbidden
+
 
 @pytest.mark.django_db
 def test_inactive_default_site_is_not_returned_as_tenant_context():
