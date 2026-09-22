@@ -4,7 +4,6 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 from rest_framework.exceptions import PermissionDenied
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import UserSerializer
@@ -458,7 +457,8 @@ def test_password_change_revokes_existing_jwt_sessions():
         full_name="Session Hardening",
         role="analyst",
     )
-    refresh = RefreshToken.for_user(user)
+    from apps.accounts.security import issue_tokens
+    refresh = issue_tokens(user)
     access = str(refresh.access_token)
 
     client = APIClient()
