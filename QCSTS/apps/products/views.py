@@ -1,5 +1,6 @@
 from core.views import TenantScopedAPIView
 from rest_framework import status
+from drf_spectacular.utils import extend_schema
 from django.utils import timezone
 
 from apps.products.models import Monograph, MonographTest, Product
@@ -21,6 +22,7 @@ class MonographListCreateView(TenantScopedAPIView):
     serializer_class = MonographSerializer
     permission_classes = [IsAnalystOrAbove]
 
+    @extend_schema(operation_id="monograph_list")
     def get(self, request):
         queryset = self.tenant_qs(Monograph.objects.select_related("created_by", "approved_by"))
         return success_response(data=MonographSerializer(queryset, many=True).data)
@@ -54,6 +56,7 @@ class MonographDetailView(TenantScopedAPIView):
         except Monograph.DoesNotExist:
             return None
 
+    @extend_schema(operation_id="monograph_retrieve")
     def get(self, request, pk):
         monograph = self.get_object(request, pk)
         if not monograph:
@@ -185,6 +188,7 @@ class ProductListCreateView(TenantScopedAPIView):
     # Allow all authenticated users (analyst, supervisor, qa_manager, admin)
     permission_classes = [IsAnalystOrAbove]
 
+    @extend_schema(operation_id="product_list")
     def get(self, request):
         queryset = self.tenant_qs(Product.objects.select_related("monograph", "created_by"))
         return success_response(data=ProductSerializer(queryset, many=True).data)
@@ -218,6 +222,7 @@ class ProductDetailView(TenantScopedAPIView):
         except Product.DoesNotExist:
             return None
 
+    @extend_schema(operation_id="product_retrieve")
     def get(self, request, pk):
         product = self.get_object(request, pk)
         if not product:
