@@ -25,6 +25,7 @@ class MFAStatusView(TenantExemptAPIView):
 
 
 class MFASetupView(TenantExemptAPIView):
+    """MFA setup is user-account scoped, so it intentionally bypasses organization tenancy."""
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signature"
@@ -49,6 +50,7 @@ class MFASetupView(TenantExemptAPIView):
 
 
 class MFAConfirmView(TenantExemptAPIView):
+    """MFA confirmation is user-account scoped, so it intentionally bypasses organization tenancy."""
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signature"
@@ -73,6 +75,7 @@ class MFAConfirmView(TenantExemptAPIView):
 
 
 class MFADisableView(TenantExemptAPIView):
+    """MFA disablement is user-account scoped, so it intentionally bypasses organization tenancy."""
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signature"
