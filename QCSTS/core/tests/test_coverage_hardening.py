@@ -7,6 +7,8 @@ from decimal import Decimal
 from datetime import timedelta
 
 import pytest
+from rest_framework.test import APIClient, APIRequestFactory
+from django.test import override_settings
 from django.core import mail
 from django.core.management import call_command
 from django.utils import timezone
@@ -572,3 +574,109 @@ def test_notification_task_creates_and_deduplicates_due_and_overdue_notification
     second = notify_upcoming_and_overdue_test_points.delay().get(timeout=10)
     assert second == 0
     assert Notification.objects.filter(organization=organization, user=supervisor).count() == 2
+
+
+@pytest.mark.django_db
+class TestAccountModelHardening:
+    def test_create_user_requires_email(self):
+        with pytest.raises(ValueError, match="Email is required"):
+            CustomUser.objects.create_user("", "TestPass123!")
+
+    def test_create_superuser_sets_secure_defaults(self):
+        user = CustomUser.objects.create_superuser(
+            "superuser@qcsts.test",
+            "TestPass123!",
+            full_name="Platform Superuser",
+        )
+        assert user.is_superuser is True
+        assert user.is_staff is True
+        assert user.role == "admin"
+
+    def test_invalid_totp_secret_fails_closed(self):
+        user = UserFactory()
+        user.set_mfa_secret("not-a-base32-secret")
+        user.save(update_fields=["mfa_secret_encrypted"])
+        assert user.verify_totp("123456", timestamp=0) is False
+
+    def test_mfa_secret_returns_none_when_not_configured(self):
+        user = UserFactory()
+        with override_settings(MFA_ENCRYPTION_KEY=""):
+            assert user.get_mfa_secret() is None
+
+    def test_setting_mfa_without_encryption_key_fails_closed(self):
+        user = UserFactory()
+        with override_settings(MFA_ENCRYPTION_KEY=""):
+            with pytest.raises(RuntimeError, match="MFA_ENCRYPTION_KEY"):
+                user.set_mfa_secret("JBSWY3DPEHPK3PXP")
+
+
+@pytest.mark.django_db
+class TestCorePermissionGuards:
+    def test_membership_permission_requires_tenant_context(self):
+        from core.permissions import IsAnalystOrAbove, HasOrganizationPermission
+
+        request = APIRequestFactory().get("/")
+        request.user = UserFactory()
+        with pytest.raises(RuntimeError, match="requires tenant context"):
+            IsAnalystOrAbove().has_permission(request, object())
+
+    def test_unknown_role_fails_closed(self):
+        from core.permissions import IsAnalystOrAbove
+        from types import SimpleNamespace
+
+        user = UserFactory()
+        role = SimpleNamespace(name="unknown-role")
+        membership = SimpleNamespace(role=role)
+        request = SimpleNamespace(user=user, membership=membership)
+        assert IsAnalystOrAbove().has_permission(request, object()) is False
+
+    def test_permission_class_must_declare_code(self):
+        from core.permissions import HasOrganizationPermission
+
+        request = SimpleNamespace(user=UserFactory(), membership=object())
+        permission = HasOrganizationPermission()
+        with pytest.raises(RuntimeError, match="must define permission_code"):
+            permission.has_permission(request, object())
+
+
+@pytest.mark.django_db
+class TestCoreViewHelpers:
+    def test_tenant_queryset_and_create_kwargs(self):
+        from core.views import TenantScopedAPIView
+        user = UserFactory()
+        organization = user.memberships.select_related("organization").get().organization
+        request = APIRequestFactory().get("/")
+        request.user = user
+        request.organization = organization
+        view = TenantScopedAPIView()
+        view.request = request
+        queryset = Organization.objects.all()
+        assert list(view.tenant_qs(queryset).values_list("id", flat=True)) == [organization.id]
+        kwargs = view.tenant_create_kwargs(extra="value")
+        assert kwargs["organization"] == organization
+        assert kwargs["created_by"] == user
+        assert kwargs["extra"] == "value"
+
+    def test_site_queryset_filters_selected_site(self):
+        from core.views import TenantScopedAPIView
+        from apps.platform.models import Site
+        user = UserFactory()
+        organization = user.memberships.select_related("organization", "default_site").get().organization
+        site = Site.objects.create(organization=organization, name="Second Site", country="EG")
+        membership = user.memberships.get(organization=organization)
+        membership.sites.add(site)
+        request = APIRequestFactory().get("/")
+        request.user = user
+        request.organization = organization
+        request.site = site
+        view = TenantScopedAPIView()
+        view.request = request
+        qs = view.site_qs(Site.objects.all())
+        assert list(qs.values_list("id", flat=True)) == [site.id]
+
+
+@pytest.mark.django_db
+def test_mark_overdue_task_returns_zero_when_nothing_is_due():
+    from apps.schedule.tasks import mark_overdue_test_points
+
+    assert mark_overdue_test_points.run() == 0
