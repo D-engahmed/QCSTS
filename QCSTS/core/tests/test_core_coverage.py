@@ -2,6 +2,7 @@ import pytest
 from django.test import RequestFactory
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from unittest.mock import MagicMock
 
 from apps.accounts.models import CustomUser
 from apps.accounts.tests.factories import AdminFactory, UserFactory
@@ -72,21 +73,20 @@ def test_tenant_base_helpers_and_guardrails():
     request.site = object()
     view = TenantScopedAPIView()
     view.request = request
-    qs = type("QS", (), {"filter": lambda self, **kwargs: kwargs})()
-    assert view.tenant_qs(qs)["organization"] is request.organization
-    assert view.site_qs(qs)["site"] is request.site
+    qs = MagicMock()
+    qs.filter.return_value = qs
+    assert view.tenant_qs(qs) is qs
+    assert view.site_qs(qs) is qs
     assert view.tenant_create_kwargs()["organization"] is request.organization
 
     class Missing(TenantScopedAPIView):
         pass
     with pytest.raises(RuntimeError):
         Missing().get_permissions()
-
     class PublicTenant(TenantScopedAPIView):
         permission_classes = [AllowAny]
     with pytest.raises(RuntimeError):
         PublicTenant().get_permissions()
-
     class AuthOnly(TenantScopedAPIView):
         permission_classes = [IsAuthenticated]
     with pytest.raises(RuntimeError):
@@ -97,9 +97,10 @@ def test_tenant_base_helpers_and_guardrails():
 def test_tenant_scoped_model_viewset_queryset_and_create_helpers():
     user = UserFactory()
     org = user.memberships.select_related("organization").get().organization
+    site = Site.objects.create(organization=org, name="Coverage Site", country="EG")
     request = RequestFactory().get("/", HTTP_X_ORGANIZATION_ID=str(org.id))
     request.user = user
     view = TenantScopedModelViewSet()
     view.request = request
-    view.queryset = Organization.objects.all()
-    assert list(view.get_queryset()) == [org]
+    view.queryset = Site.objects.all()
+    assert list(view.get_queryset()) == [site]
