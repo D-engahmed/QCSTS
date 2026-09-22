@@ -8,11 +8,14 @@ from apps.quality.models import OOSInvestigation, OOTInvestigation, Deviation, C
 from core.permissions import IsAnalystOrAbove
 from core.responses import success_response
 from core.views import TenantScopedAPIView
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 
 class AnalyticsView(TenantScopedAPIView):
     permission_classes = [IsAnalystOrAbove]
 
+    @extend_schema(operation_id="analytics", responses=OpenApiTypes.OBJECT)
     def get(self, request):
         org = request.organization
 
