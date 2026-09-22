@@ -1,8 +1,9 @@
 import pytest
 from datetime import timedelta
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import CustomUser
@@ -373,7 +374,7 @@ def test_soft_delete_rolls_back_audit_when_state_save_fails(monkeypatch):
 
 @pytest.mark.django_db
 def test_tenant_domain_delete_soft_deactivates_record():
-    user = UserFactory()
+    user = QAManagerFactory()
     organization = user.memberships.select_related("organization").get().organization
     deviation = Deviation.objects.create(
         organization=organization,
