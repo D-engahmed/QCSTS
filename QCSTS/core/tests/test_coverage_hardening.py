@@ -17,6 +17,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.test import APIClient
 
 from apps.accounts.tests.factories import AdminFactory, QAManagerFactory, UserFactory
+from apps.accounts.models import CustomUser
 from apps.billing.models import Plan, Subscription, UsageRecord, PaymentEvent
 from apps.billing.services import BillingService
 from apps.notifications.models import Notification
@@ -592,6 +593,13 @@ class TestAccountModelHardening:
         assert user.is_superuser is True
         assert user.is_staff is True
         assert user.role == "admin"
+
+    def test_totp_at_epoch_does_not_pack_negative_counter(self):
+        user = UserFactory()
+        secret = "JBSWY3DPEHPK3PXP"
+        user.set_mfa_secret(secret)
+        user.save(update_fields=["mfa_secret_encrypted"])
+        assert user.verify_totp(_totp(secret, timestamp=0), timestamp=0) is True
 
     def test_invalid_totp_secret_fails_closed(self):
         user = UserFactory()
