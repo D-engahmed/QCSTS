@@ -38,13 +38,13 @@ class TestResultSerializer(TenantScopedModelSerializer):
             "organization"
         ]
 
-    def get_analyst_name(self, obj):
+    def get_analyst_name(self, obj) -> str | None:
         return obj.analyst.full_name if obj.analyst else None
 
-    def get_test_name(self, obj):
+    def get_test_name(self, obj) -> str:
         return obj.monograph_test.name
 
-    def get_workflow_state(self, obj):
+    def get_workflow_state(self, obj) -> str:
         return obj.workflow_state()
 
     def validate(self, data):
@@ -104,7 +104,7 @@ class ResultReviewSerializer(serializers.ModelSerializer):
             "organization",
         ]
 
-    def get_reviewed_by_name(self, obj):
+    def get_reviewed_by_name(self, obj) -> str | None:
         return obj.reviewed_by.full_name if obj.reviewed_by else None
 
 class ResultCorrectionSerializer(serializers.ModelSerializer):
@@ -128,12 +128,12 @@ class ResultCorrectionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_corrected_by_name(self, obj):
+    def get_corrected_by_name(self, obj) -> str | None:
         return obj.corrected_by.full_name if obj.corrected_by else None
 
-    def get_original_value(self, obj):
+    def get_original_value(self, obj) -> str:
         # Fetch from all_objects since the original is soft-deleted
         return TestResult.all_objects.get(id=obj.original_result_id).value
 
-    def get_corrected_value(self, obj):
+    def get_corrected_value(self, obj) -> str:
         return obj.corrected_result.value
