@@ -158,6 +158,47 @@ def test_selected_site_requires_explicit_membership():
 
 
 @pytest.mark.django_db
+@pytest.mark.django_db
+def test_default_site_must_also_be_an_explicit_membership():
+    user = UserFactory()
+    membership = user.memberships.select_related("organization").get()
+    site = Site.objects.create(
+        organization=membership.organization,
+        name="Unassigned Default",
+        country="EG",
+    )
+    membership.default_site = site
+    membership.save()
+
+    request = APIRequestFactory().get("/")
+    request.user = user
+
+    TenantContextService.resolve(request)
+    assert request.site is None
+
+
+@pytest.mark.django_db
+def test_explicit_inactive_site_is_rejected():
+    user = UserFactory()
+    membership = user.memberships.select_related("organization").get()
+    site = Site.objects.create(
+        organization=membership.organization,
+        name="Inactive Explicit",
+        country="EG",
+        status=Site.Status.INACTIVE,
+    )
+    membership.sites.add(site)
+
+    request = APIRequestFactory().get(
+        "/",
+        HTTP_X_SITE_ID=str(site.id),
+    )
+    request.user = user
+
+    with pytest.raises(Exception, match="Active site"):
+        TenantContextService.resolve(request)
+
+
 def test_inactive_default_site_is_not_returned_as_tenant_context():
     user = UserFactory()
     membership = user.memberships.select_related("organization").get()
