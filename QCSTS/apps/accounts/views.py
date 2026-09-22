@@ -21,6 +21,7 @@ from apps.accounts.serializers import (
 from apps.platform.models import Membership, Organization, Permission, Role, Site
 from apps.billing.models import Plan, Subscription
 from apps.accounts.recovery import issue_email_verification
+from apps.accounts.security import revoke_user_sessions
 from core.permissions import IsAdmin
 from core.responses import error_response, success_response
 from core.views import PublicAPIView, TenantExemptAPIView, TenantScopedAPIView
@@ -326,6 +327,7 @@ class ChangePasswordView(TenantExemptAPIView):
         user.set_password(serializer.validated_data["new_password"])
         user.password_changed_at = timezone.now()
         user.save(update_fields=["password", "password_changed_at"])
+        revoke_user_sessions(user)
         return success_response(message="Password changed successfully.")
 
 
