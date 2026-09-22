@@ -25,7 +25,7 @@ class LoginSerializer(serializers.Serializer):
         email = data.get("email")
         password = data.get("password")
 
-        user = CustomUser.objects.filter(email=email).first()
+        user = CustomUser.objects.filter(email__iexact=email).first()
 
         if user is None:
             check_password(password, _DUMMY_HASH)
@@ -82,20 +82,35 @@ class UserSerializer(serializers.ModelSerializer):
             "id", "email", "full_name", "role", "organization_role", "organization_site", "email_verified_at",
             "is_active", "created_at",
         ]
-        read_only_fields = ["id", "email", "role", "organization_role", "email_verified_at", "created_at"]
+        read_only_fields = [
+            "id",
+            "email",
+            "role",
+            "organization_role",
+            "organization_site",
+            "email_verified_at",
+            "is_active",
+            "created_at",
+        ]
 
     def get_organization_role(self, obj):
         organization = self.context.get("organization")
         if organization is None:
             return None
-        membership = obj.memberships.filter(organization=organization).select_related("role").first()
+        membership = obj.memberships.filter(
+            organization=organization,
+            is_active=True,
+        ).select_related("role").first()
         return membership.role.name if membership else None
 
     def get_organization_site(self, obj):
         organization = self.context.get("organization")
         if organization is None:
             return None
-        membership = obj.memberships.filter(organization=organization).select_related("default_site").first()
+        membership = obj.memberships.filter(
+            organization=organization,
+            is_active=True,
+        ).select_related("default_site").first()
         if not membership or not membership.default_site:
             return None
         return {"id": str(membership.default_site.id), "name": membership.default_site.name}
