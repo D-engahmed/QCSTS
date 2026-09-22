@@ -98,6 +98,7 @@ class BaseModel(models.Model):
                 ip_address=ip_address,
                 notes=notes,
                 organization=self.organization if hasattr(self, "organization") else None,
+                required=True,
             )
             self.is_active = False
             self.save(update_fields=["is_active", "updated_at"])
