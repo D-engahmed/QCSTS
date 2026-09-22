@@ -1,12 +1,21 @@
 from datetime import timedelta
 
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 import pytest
+from apps.accounts.models import CustomUser
 from apps.accounts.tests.factories import UserFactory
 
 
 @pytest.mark.django_db
 class TestCustomUser:
+
+    def test_email_is_unique_case_insensitively_in_database(self):
+        UserFactory(email="person@example.test")
+        with pytest.raises(IntegrityError), transaction.atomic():
+            CustomUser.objects.create_user(
+                email="PERSON@example.test", password="TestPass123!", full_name="Second User"
+            )
 
     def test_user_str(self):
         user = UserFactory(full_name="Ahmed Ali", email="ahmed@cqsts.com")

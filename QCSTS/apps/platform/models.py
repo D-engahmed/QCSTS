@@ -138,18 +138,21 @@ class Membership(models.Model):
 
 
 @receiver(m2m_changed, sender=Membership.sites.through)
-def validate_membership_sites(sender, instance, action, pk_set, **kwargs):
+def validate_membership_sites(sender, instance, action, pk_set, reverse, **kwargs):
     """Prevent assigning a membership to a site owned by another organization."""
     if action != "pre_add" or not pk_set or instance.organization_id is None:
         return
-    valid_site_ids = set(
-        Site.objects.filter(
-            pk__in=pk_set,
-            organization_id=instance.organization_id,
-        ).values_list("pk", flat=True)
-    )
-    invalid_site_ids = set(pk_set) - valid_site_ids
-    if invalid_site_ids:
+    if reverse:
+        valid_ids = set(
+            Membership.objects.filter(pk__in=pk_set, organization_id=instance.organization_id)
+            .values_list("pk", flat=True)
+        )
+    else:
+        valid_ids = set(
+            Site.objects.filter(pk__in=pk_set, organization_id=instance.organization_id)
+            .values_list("pk", flat=True)
+        )
+    if set(pk_set) - valid_ids:
         raise ValidationError(
             {"sites": "All membership sites must belong to the membership organization."}
         )

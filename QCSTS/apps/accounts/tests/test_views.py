@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import CustomUser
 from apps.accounts.tests.factories import AdminFactory, UserFactory
-from apps.platform.models import Organization
+from apps.platform.models import Organization, Site
 
 
 @pytest.fixture
@@ -38,6 +38,20 @@ class TestLoginView:
         assert "access" in response.data["data"]
         assert "refresh" in response.data["data"]
         assert response.data["data"]["user"]["email"] == analyst.email
+
+    def test_login_does_not_expose_unassigned_default_site(self, client, analyst):
+        membership = analyst.memberships.get()
+        site = Site.objects.create(organization=membership.organization, name="Unassigned", country="EG")
+        membership.default_site = site
+        membership.save()
+
+        response = client.post(
+            "/api/v1/auth/login/", {"email": analyst.email, "password": "TestPass123!"}
+        )
+
+        assert response.status_code == 200
+        assert response.data["data"]["site"] is None
+        assert response.data["data"]["membership"]["site_id"] is None
 
     def test_login_wrong_password(self, client, analyst):
         response = client.post(
@@ -222,7 +236,7 @@ class TestOrganizationRegistration:
                 "organization_name": "Another Pharma",
                 "country": "EG",
                 "full_name": "Another Owner",
-                "email": existing_user.email,
+                "email": existing_user.email.upper(),
                 "password": "VerySecurePass123!",
             },
             format="json",

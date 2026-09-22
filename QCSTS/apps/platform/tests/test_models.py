@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.test import TestCase
 
 from apps.accounts.models import CustomUser
@@ -45,3 +46,27 @@ class TestPlatformModels(TestCase):
 
         with self.assertRaises(ValidationError):
             membership.full_clean()
+
+    def test_reverse_site_assignment_rejects_foreign_membership(self):
+        first = Organization.objects.create(name="Acme Pharma", slug="acme", country="EG")
+        second = Organization.objects.create(name="Other Pharma", slug="other", country="SA")
+        site = Site.objects.create(organization=first, name="Cairo", country="EG")
+        role = Role.objects.create(organization=second, name="Analyst")
+        membership = Membership.objects.create(
+            user=self.create_user(), organization=second, role=role
+        )
+
+        with self.assertRaises(ValidationError), transaction.atomic():
+            site.memberships.add(membership)
+        self.assertFalse(site.memberships.exists())
+
+    def test_reverse_site_assignment_accepts_same_organization(self):
+        organization = Organization.objects.create(name="Acme Pharma", slug="acme", country="EG")
+        site = Site.objects.create(organization=organization, name="Cairo", country="EG")
+        role = Role.objects.create(organization=organization, name="Analyst")
+        membership = Membership.objects.create(
+            user=self.create_user(), organization=organization, role=role
+        )
+
+        site.memberships.add(membership)
+        self.assertTrue(site.memberships.filter(pk=membership.pk).exists())

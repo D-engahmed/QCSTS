@@ -86,7 +86,7 @@ class PaymobWebhookAPITests(TestCase):
             self.payload(obj),
             format="json",
         )
-        self.assertIn(response.status_code, {400, 403})
+        self.assertEqual(response.status_code, 400)
 
         obj = {**self.obj, "source_data": ["not", "a", "dict"]}
         response = self.client.post(
@@ -94,7 +94,7 @@ class PaymobWebhookAPITests(TestCase):
             self.payload(obj),
             format="json",
         )
-        self.assertIn(response.status_code, {400, 403})
+        self.assertEqual(response.status_code, 400)
 
     def test_non_numeric_amount_is_rejected_without_500(self):
         obj = {**self.obj, "amount_cents": "not-a-number"}
@@ -192,3 +192,29 @@ class PaymobWebhookAPITests(TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(second.json()["status"], "already_processed")
         self.assertEqual(PaymentEvent.objects.count(), 1)
+
+    def test_existing_event_from_another_organization_is_rejected(self):
+        other = Organization.objects.create(
+            name="Other Paymob Pharma", slug="other-paymob-pharma", country="EG", currency="EGP"
+        )
+        for processed in (False, True):
+            transaction_id = 12345 + int(processed)
+            event = PaymentEvent.objects.create(
+                organization=other,
+                provider="paymob",
+                event_id=str(transaction_id),
+                event_type="transaction",
+                payload={},
+                processed=processed,
+            )
+            obj = {**self.obj, "id": transaction_id}
+            response = self.client.post(
+                "/api/v1/billing/webhooks/paymob/transaction/",
+                self.payload(obj),
+                format="json",
+            )
+            self.assertEqual(response.status_code, 409)
+            event.refresh_from_db()
+            self.assertEqual(event.processed, processed)
+            self.invoice.refresh_from_db()
+            self.assertEqual(self.invoice.status, Invoice.Status.DRAFT)

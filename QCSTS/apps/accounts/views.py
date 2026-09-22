@@ -81,7 +81,12 @@ class LoginView(PublicAPIView):
         )
         active_site = (
             membership.default_site
-            if membership and membership.default_site and membership.default_site.status == Site.Status.ACTIVE
+            if (
+                membership
+                and membership.default_site
+                and membership.default_site.status == Site.Status.ACTIVE
+                and membership.sites.filter(pk=membership.default_site_id).exists()
+            )
             else None
         )
         return success_response(

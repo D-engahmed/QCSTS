@@ -65,6 +65,8 @@ class PaymobTransactionWebhookView(TenantExemptAPIView):
                 "payload": request.data,
             },
         )
+        if event.organization_id != invoice.organization_id:
+            return Response({"detail": "Payment event belongs to another organization."}, status=409)
         if not created and event.processed:
             return Response({"status": "already_processed"}, status=200)
 

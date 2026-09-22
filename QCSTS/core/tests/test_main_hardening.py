@@ -566,9 +566,11 @@ def test_stability_unknown_action_fails_closed():
 
 @pytest.mark.django_db
 def test_audit_actor_must_belong_to_audit_organization():
+    from apps.audit.models import AuditLog
+
     user_a = UserFactory()
     organization_a = user_a.memberships.select_related("organization").get().organization
-    user_b = UserFactory()
+    _, user_b, _ = make_org_user("audit-b")
 
     with pytest.raises(ValidationError, match="audit actor"):
         AuditLog.objects.create(
@@ -579,6 +581,22 @@ def test_audit_actor_must_belong_to_audit_organization():
             object_id="1",
             object_repr="foreign actor",
         )
+
+
+def test_audit_service_default_is_best_effort(monkeypatch):
+    from services.audit_service import AuditService
+
+    def fail_audit(*args, **kwargs):
+        raise RuntimeError("simulated audit failure")
+
+    monkeypatch.setattr("apps.audit.models.AuditLog.objects.create", fail_audit)
+    AuditService.log(
+        performed_by=None,
+        action="UPDATE",
+        model_name="Batch",
+        object_id="1",
+        object_repr="best-effort audit",
+    )
 
 
 @pytest.mark.django_db

@@ -12,7 +12,7 @@ class AuditService:
     Rules:
     - Called by every service that modifies data
     - Never called directly from views
-    - Audit persistence is fail-closed for security-critical operations.
+    - Security-critical operations opt into fail-closed auditing inside the mutation transaction.
 
     Usage:
         AuditService.log(
@@ -39,12 +39,13 @@ class AuditService:
         ip_address=None,
         notes="",
         organization=None,
-        required=True,
+        required=False,
     ):
         """
         Creates an immutable audit log entry.
 
-        Security-critical operations fail closed when audit persistence fails.
+        Security-critical operations fail closed when required=True and the caller
+        wraps the mutation and audit write in the same transaction.
         """
         try:
             AuditLog.objects.create(

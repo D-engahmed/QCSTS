@@ -9,6 +9,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils import timezone
 
 
@@ -66,6 +67,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     class Meta:
         db_table = "accounts_user"
         ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(Lower("email"), name="unique_user_email_lower")]
 
     def __str__(self):
         return f"{self.full_name} ({self.email})"
