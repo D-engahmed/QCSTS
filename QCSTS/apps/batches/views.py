@@ -1,5 +1,6 @@
 from core.views import TenantScopedAPIView
 from rest_framework import status
+from drf_spectacular.utils import extend_schema
 
 from apps.batches.models import Batch
 from apps.batches.serializers import BatchSerializer
@@ -18,6 +19,7 @@ class BatchListCreateView(TenantScopedAPIView):
 
     permission_classes = [IsAnalystOrAbove]
 
+    @extend_schema(operation_id="batch_list")
     def get(self, request):
         queryset = self.tenant_qs(Batch.objects.select_related("product", "product__monograph"))
 
@@ -59,6 +61,7 @@ class BatchDetailView(TenantScopedAPIView):
         except Batch.DoesNotExist:
             return None
 
+    @extend_schema(operation_id="batch_retrieve")
     def get(self, request, pk):
         batch = self.get_object(request, pk)
         if not batch:
