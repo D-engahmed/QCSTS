@@ -39,10 +39,13 @@ class AuditService:
         new_value=None,
         ip_address=None,
         notes="",
-        organization=None,  # NEW: Added for multi-tenant isolation
+        organization=None,
+        required=True,
     ):
         """
         Creates an immutable audit log entry.
+
+        Security-critical operations fail closed when audit persistence fails.
         """
         try:
             AuditLog.objects.create(
@@ -64,4 +67,7 @@ class AuditService:
                 model_name,
                 object_id,
                 str(e),
+                exc_info=True,
             )
+            if required:
+                raise AuditLogFailure() from e
