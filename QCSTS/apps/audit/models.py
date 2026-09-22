@@ -24,6 +24,12 @@ class AuditLog(models.Model):
         ("SIGN", "Electronic Signature"),
         ("APPROVE", "Approve"),
         ("REJECT", "Reject"),
+        ("PASSWORD_CHANGED", "Password Changed"),
+        ("PASSWORD_RESET", "Password Reset"),
+        ("EMAIL_VERIFIED", "Email Verified"),
+        ("MFA_SETUP_STARTED", "MFA Setup Started"),
+        ("MFA_ENABLED", "MFA Enabled"),
+        ("MFA_DISABLED", "MFA Disabled"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
