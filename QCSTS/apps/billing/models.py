@@ -2,6 +2,7 @@ import uuid
 from decimal import Decimal
 
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -112,6 +113,14 @@ class Invoice(models.Model):
 
     def __str__(self):
         return self.number
+
+    def save(self, *args, **kwargs):
+        if self.subscription_id and self.organization_id:
+            if self.subscription.organization_id != self.organization_id:
+                raise ValidationError(
+                    {"subscription": "Invoice subscription must belong to the invoice organization."}
+                )
+        super().save(*args, **kwargs)
 
 
 class PaymentEvent(models.Model):
