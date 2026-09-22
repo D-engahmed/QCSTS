@@ -205,8 +205,6 @@ class ResultCorrection(BaseModel):
         self.assert_same_organization(
             original_result=self.original_result, corrected_result=self.corrected_result
         )
-        if self.corrected_by_id:
-            self.assert_user_in_organization(self.corrected_by, "corrected_by")
 
         super().save(*args, **kwargs)
         
