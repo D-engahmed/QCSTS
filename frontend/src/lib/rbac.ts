@@ -96,7 +96,7 @@ const ROUTE_SECTION: Array<[string, string]> = [
 
 export function normalizeRole(value?: string | null): AppRole {
   const role = String(value ?? "").trim().toLowerCase();
-  return role in ROLE_LABELS ? (role as AppRole) : "viewer";
+  return role in ROLE_LABELS ? (role as AppRole) : "system";
 }
 
 export function roleCanSeeSection(roleValue: string | null | undefined, section: string) {
