@@ -56,6 +56,8 @@ const groups: Array<[string, NavItem[]]> = [
     ["Organization", "/app/organization", Building2, "administration"],
     ["Users / Members", "/app/users", Users, "administration"],
     ["Billing", "/app/billing", WalletCards, "administration"],
+  ]],
+  ["Account", [
     ["Security settings", "/app/settings", Settings, "personal-settings"],
   ]],
 ];
