@@ -70,6 +70,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  const role = normalizeRole(user?.organization_role || membership?.role);
+  const authorizedRoute =
+    !pathname.startsWith("/app") || roleCanAccessPath(role, pathname);
+  const roleLabel = ROLE_LABELS[role];
+
+  useEffect(() => {
+    if (!loading && user && !authorizedRoute) {
+      router.replace("/app");
+    }
+  }, [authorizedRoute, loading, router, user]);
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -80,14 +91,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <>{children}</>;
-
-  const role = normalizeRole(user.organization_role || membership?.role);
-  const authorizedRoute = roleCanAccessPath(role, pathname);
-  const roleLabel = ROLE_LABELS[role];
-
-  useEffect(() => {
-    if (!authorizedRoute) router.replace("/app");
-  }, [authorizedRoute, router]);
 
   if (!authorizedRoute) {
     return (
