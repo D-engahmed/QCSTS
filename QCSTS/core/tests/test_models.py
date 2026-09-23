@@ -1,5 +1,6 @@
 import pytest
 from apps.batches.tests.factories import BatchFactory
+from apps.accounts.tests.factories import UserFactory
 from apps.audit.models import AuditLog
 from django.contrib.auth import get_user_model
 
@@ -7,7 +8,7 @@ from django.contrib.auth import get_user_model
 class TestBaseModelSoftDelete:
     def test_soft_delete_creates_audit_log(self):
         User = get_user_model()
-        user = User.objects.create_user(email="deleter@test.com", password="pass", role="admin")
+        user = UserFactory(email="deleter@test.com", role="admin")
         organization = user.memberships.select_related("organization").get().organization
         batch = BatchFactory(organization=organization, created_by=user)
         
