@@ -8,9 +8,8 @@ class TestBaseModelSoftDelete:
     def test_soft_delete_creates_audit_log(self):
         User = get_user_model()
         user = User.objects.create_user(email="deleter@test.com", password="pass", role="admin")
-        
-        batch = BatchFactory()
-        organization = batch.organization
+        organization = user.memberships.select_related("organization").get().organization
+        batch = BatchFactory(organization=organization, created_by=user)
         
         initial_count = AuditLog.objects.count()
         
