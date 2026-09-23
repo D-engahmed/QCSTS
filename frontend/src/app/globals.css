@@ -32,3 +32,522 @@ html.dark .auth-card{box-shadow:0 18px 70px rgba(0,0,0,.25)}html.dark .security-
 @keyframes heroIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}@keyframes visualIn{from{opacity:0;transform:translateX(24px) scale(.98)}to{opacity:1;transform:none}}@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(13,107,98,0)}}@keyframes progressIn{from{width:0}}@keyframes modalIn{from{opacity:0;transform:scale(.97) translateY(10px)}to{opacity:1;transform:none}}@keyframes videoCopy{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes videoProgress{from{width:0}}@media(prefers-reduced-motion:reduce){.hero-copy,.hero-visual,.dashboard-preview,.video-window,.video-content{animation:none!important}.pulse-dot,.progress i,.video-progress span.active{animation:none!important}.explainer-card,.dashboard-preview{transition:none!important}}
 @media(max-width:900px){.auth-layout,.register-layout,.explain-band{grid-template-columns:1fr}.auth-side{display:none}.lifecycle{grid-template-columns:repeat(3,1fr);row-gap:28px}.lifecycle-line{display:none}.hero-visual{min-height:420px}.preview-stats{grid-template-columns:1fr 1fr}.explain-band{gap:25px}.auth-toolbar{position:absolute}}
 @media(max-width:600px){.theme-toggle span{display:none}.landing-actions{gap:5px}.landing-actions .btn:first-of-type{display:none}.hero-visual{min-height:360px}.dashboard-preview{padding:12px}.preview-stats{grid-template-columns:1fr}.preview-flow{display:none}.video-content{padding:55px 7%}.video-content h3{font-size:26px}.video-flow{grid-template-columns:1fr 1fr}.lifecycle{grid-template-columns:1fr 1fr}.auth-page{padding:20px}.auth-toolbar{left:20px;right:20px}.auth-card{margin-top:70px;padding:24px}.auth-switch{align-items:flex-start;flex-direction:column}.register-card{margin-top:70px}}
+
+
+/* =========================================================
+   QCSTS FORM + UI POLISH
+   Keep the existing visual language; improve readability,
+   selected/entered states, focus, density and component parity.
+   ========================================================= */
+
+.field {
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.field > span {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.field > small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.field > em {
+  color: var(--danger);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.field:focus-within > span {
+  color: var(--brand2);
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #c7d1d6;
+  border-radius: 9px;
+  background: #fff;
+  color: #14202b;
+  -webkit-text-fill-color: #14202b;
+  caret-color: var(--brand);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  outline: none;
+  transition:
+    border-color .16s ease,
+    box-shadow .16s ease,
+    background-color .16s ease;
+}
+
+.field input,
+.field select {
+  min-height: 42px;
+  padding: 10px 12px;
+}
+
+.field textarea {
+  min-height: 112px;
+  padding: 11px 12px;
+  resize: vertical;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: #7b8992;
+  opacity: 1;
+  -webkit-text-fill-color: #7b8992;
+}
+
+.field input:hover,
+.field select:hover,
+.field textarea:hover {
+  border-color: #9eacb4;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(13, 107, 98, .11);
+}
+
+.field select {
+  cursor: pointer;
+}
+
+.field select option {
+  color: #14202b;
+  background: #fff;
+}
+
+.field input:read-only,
+.field textarea:read-only {
+  background: #f4f6f7;
+  color: #46545c;
+  -webkit-text-fill-color: #46545c;
+}
+
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+  background: #eef1f2;
+}
+
+/* Make entered/selected values visually distinct without using loud fills. */
+.field:has(input:not(:placeholder-shown)),
+.field:has(textarea:not(:placeholder-shown)),
+.field:has(select:has(option:checked:not([value=""]))) {
+  --field-border: #9bcfc8;
+}
+
+.field:has(input:not(:placeholder-shown)) input,
+.field:has(textarea:not(:placeholder-shown)) textarea,
+.field:has(select:has(option:checked:not([value=""]))) select {
+  border-color: var(--field-border);
+  background: #fbfefd;
+}
+
+.field input:-webkit-autofill,
+.field input:-webkit-autofill:hover,
+.field input:-webkit-autofill:focus,
+.field textarea:-webkit-autofill,
+.field textarea:-webkit-autofill:hover,
+.field textarea:-webkit-autofill:focus,
+.field select:-webkit-autofill,
+.field select:-webkit-autofill:hover,
+.field select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #14202b;
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  box-shadow: 0 0 0 1000px #fff inset;
+  caret-color: var(--brand);
+}
+
+/* Shared UI primitives from components/ui.tsx */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 9px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.badge.neutral {
+  background: #f1f4f5;
+  border-color: #d8e0e3;
+  color: #44525a;
+}
+.badge.info {
+  background: #edf5fb;
+  border-color: #cbddea;
+  color: #255b86;
+}
+.badge.active {
+  background: #e9f7f1;
+  border-color: #c5e4d5;
+  color: #176b45;
+}
+.badge.warning {
+  background: #fff6df;
+  border-color: #ead7a4;
+  color: #765200;
+}
+.badge.critical {
+  background: #fff0ef;
+  border-color: #efcbc7;
+  color: #9e251d;
+}
+
+.table-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, 100%);
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.table-search:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(13, 107, 98, .09);
+}
+
+.table-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.modal {
+  position: relative;
+  width: min(680px, 100%);
+  max-height: min(820px, calc(100vh - 40px));
+  overflow: auto;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 30px 100px rgba(0,0,0,.24);
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-head strong,
+.modal-head span {
+  display: block;
+}
+.modal-head strong {
+  font: 700 18px Manrope;
+}
+.modal-head span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.wizard {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 2px 14px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: thin;
+}
+
+.wizard button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.wizard button > span {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 9px;
+  flex: 0 0 auto;
+}
+
+.wizard button.current {
+  background: #eaf6f4;
+  color: var(--brand2);
+}
+
+.wizard button.current > span {
+  border-color: #9bcfc8;
+  background: #fff;
+  color: var(--brand2);
+}
+
+.wizard button.done {
+  color: var(--brand2);
+}
+
+.wizard button.done > span {
+  border-color: #b8ddd6;
+  background: #eff9f7;
+  color: var(--brand2);
+}
+
+.wizard-body {
+  min-height: 200px;
+}
+
+.wizard-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 18px;
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.locked {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid #d7dfe3;
+  border-radius: 9px;
+  background: #f3f5f6;
+  color: #4b5961;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.empty-icon,
+.success-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  margin-bottom: 4px;
+}
+
+.empty-icon {
+  background: #eef3f4;
+  color: var(--muted);
+}
+
+.success-icon {
+  background: #e9f7f1;
+  color: var(--success);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.success-panel {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 30px 10px;
+  text-align: center;
+}
+
+.success-panel h3 {
+  margin: 4px 0;
+  font: 700 19px Manrope;
+}
+
+.success-panel p {
+  max-width: 430px;
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Dark mode: keep the selected/entered value readable. */
+html.dark .field input,
+html.dark .field select,
+html.dark .field textarea {
+  background: #111b1f;
+  color: #edf5f4;
+  -webkit-text-fill-color: #edf5f4;
+  border-color: #34474d;
+}
+
+html.dark .field input::placeholder,
+html.dark .field textarea::placeholder {
+  color: #91a1a6;
+  -webkit-text-fill-color: #91a1a6;
+}
+
+html.dark .field input:hover,
+html.dark .field select:hover,
+html.dark .field textarea:hover {
+  border-color: #50666d;
+}
+
+html.dark .field input:focus,
+html.dark .field select:focus,
+html.dark .field textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(66, 184, 170, .14);
+}
+
+html.dark .field select option {
+  color: #edf5f4;
+  background: #111b1f;
+}
+
+html.dark .field input:read-only,
+html.dark .field textarea:read-only {
+  background: #182428;
+  color: #b9c6ca;
+  -webkit-text-fill-color: #b9c6ca;
+}
+
+html.dark .field:has(input:not(:placeholder-shown)) input,
+html.dark .field:has(textarea:not(:placeholder-shown)) textarea,
+html.dark .field:has(select:has(option:checked:not([value=""]))) select {
+  background: #132522;
+  border-color: #397d73;
+}
+
+html.dark .field input:-webkit-autofill,
+html.dark .field input:-webkit-autofill:hover,
+html.dark .field input:-webkit-autofill:focus,
+html.dark .field textarea:-webkit-autofill,
+html.dark .field textarea:-webkit-autofill:hover,
+html.dark .field textarea:-webkit-autofill:focus {
+  -webkit-text-fill-color: #edf5f4;
+  -webkit-box-shadow: 0 0 0 1000px #111b1f inset;
+  box-shadow: 0 0 0 1000px #111b1f inset;
+  caret-color: var(--brand);
+}
+
+html.dark .badge.neutral {
+  background: #202a2e;
+  border-color: #3a484d;
+  color: #c5d0d4;
+}
+html.dark .badge.info {
+  background: #172b3a;
+  border-color: #31536b;
+  color: #9dcaf0;
+}
+html.dark .badge.active {
+  background: #183227;
+  border-color: #315c47;
+  color: #9fe0ba;
+}
+html.dark .badge.warning {
+  background: #352b19;
+  border-color: #685326;
+  color: #f2ca75;
+}
+html.dark .badge.critical {
+  background: #351e1d;
+  border-color: #653634;
+  color: #f0aaa4;
+}
+
+html.dark .modal,
+html.dark .modal-head {
+  color: var(--ink);
+}
+
+html.dark .wizard button.current {
+  background: #17332f;
+  color: #9fe3da;
+}
+html.dark .wizard button.current > span {
+  background: #142024;
+  border-color: #397d73;
+  color: #9fe3da;
+}
+html.dark .wizard button.done > span {
+  background: #183227;
+  border-color: #315c47;
+  color: #9fe0ba;
+}
+html.dark .locked {
+  background: #182226;
+  border-color: #35464c;
+  color: #b6c3c7;
+}
+html.dark .empty-icon {
+  background: #1a2529;
+  color: #aab8bc;
+}
+html.dark .success-icon {
+  background: #183227;
+  color: #9fe0ba;
+}
+
+@media (max-width: 700px) {
+  .modal {
+    padding: 18px;
+    max-height: calc(100vh - 24px);
+    border-radius: 14px;
+  }
+
+  .wizard {
+    margin-inline: -6px;
+  }
+
+  .wizard-footer {
+    justify-content: stretch;
+  }
+
+  .wizard-footer .btn {
+    flex: 1;
+  }
+
+  .table-search {
+    width: 100%;
+  }
+}
