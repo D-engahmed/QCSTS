@@ -36,9 +36,8 @@ def test_stability_permission_by_action_delegates():
     with patch("apps.stability.api.IsAdmin.has_permission", return_value=True):
         view.action = "destroy"
         assert permission.has_permission(request, view) is True
-    with patch("apps.stability.api.HasTenantContext.has_permission", return_value=True):
-        view.action = "other"
-        assert permission.has_permission(request, view) is True
+    view.action = "other"
+    assert permission.has_permission(request, view) is False
 
 
 def test_storage_condition_validation():
