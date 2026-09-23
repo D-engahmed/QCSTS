@@ -1,9 +1,9 @@
 import pytest
 from datetime import timedelta
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import UserSerializer
@@ -11,6 +11,7 @@ from apps.accounts.tests.factories import QAManagerFactory, UserFactory
 from apps.batches.models import Batch
 from apps.batches.tests.factories import BatchFactory
 from apps.billing.models import Plan, Subscription
+from apps.audit.models import AuditLog
 from apps.compliance.models import ElectronicSignature
 from apps.platform.models import Membership, Organization, Role, Site
 from apps.platform.services import TenantContextService
