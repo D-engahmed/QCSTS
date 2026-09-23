@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import UserSerializer
@@ -148,7 +149,7 @@ def test_selected_site_requires_explicit_membership():
     )
     request.user = user
 
-    with pytest.raises(PermissionDenied, match="access to this site"):
+    with pytest.raises(DRFPermissionDenied, match="access to this site"):
         TenantContextService.resolve(request)
 
     membership.sites.add(forbidden)
@@ -567,9 +568,8 @@ def test_stability_unknown_action_fails_closed():
 
 @pytest.mark.django_db
 def test_audit_actor_must_belong_to_audit_organization():
-    user_a = UserFactory()
-    organization_a = user_a.memberships.select_related("organization").get().organization
-    user_b = UserFactory()
+    organization_a, _, _ = make_org_user("audit-org-a")
+    _, user_b, _ = make_org_user("audit-org-b")
 
     with pytest.raises(ValidationError, match="audit actor"):
         AuditLog.objects.create(
