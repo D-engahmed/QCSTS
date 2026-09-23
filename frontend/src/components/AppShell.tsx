@@ -68,10 +68,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const { user, membership, organization, site, logout, loading } = useAuth();
 
-  if (pathname === "/" || pathname === "/login" || pathname === "/register") {
-    return <>{children}</>;
-  }
-
   const role = normalizeRole(user?.organization_role || membership?.role);
   const authorizedRoute =
     !pathname.startsWith("/app") || roleCanAccessPath(role, pathname);
@@ -82,6 +78,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       router.replace("/app");
     }
   }, [authorizedRoute, loading, router, user]);
+
+  if (pathname === "/" || pathname === "/login" || pathname === "/register") {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (
