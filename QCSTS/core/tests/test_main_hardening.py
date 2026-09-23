@@ -1,9 +1,9 @@
 import pytest
 from datetime import timedelta
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound
 
 from apps.accounts.models import CustomUser
 from apps.accounts.serializers import UserSerializer
