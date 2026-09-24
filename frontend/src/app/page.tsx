@@ -13,7 +13,7 @@ const lifecycle = ["Organization", "Product", "Study", "Timepoint", "Result", "R
 
 export default function Landing() {
   return (
-    <main className="landing anytime-inspired">
+    <main className="landing qcsts-editorial">
       <header className="landing-nav">
         <Link className="brand" href="/">
           <div className="brand-mark">Q</div>
@@ -81,6 +81,8 @@ export default function Landing() {
         <ProductExplainer />
       </section>
 
+      <section className="so-section"><div className="so-mark">SO</div><div><span className="eyebrow">ONE SYSTEM · EVERY RECORD CONNECTED</span><h2>From first record to controlled decision.</h2><p>Products, studies, results, review and evidence stay in the same operational thread.</p></div></section>
+
       <section id="workflow" className="capability-section">
         <div className="section-heading">
           <span className="eyebrow">THE OPERATING MODEL</span>
@@ -113,6 +115,20 @@ export default function Landing() {
         </div>
       </section>
 
+      <section className="process-section">
+        <div className="section-heading centered">
+          <span className="eyebrow">HOW QCSTS WORKS</span>
+          <h2>One team. Every quality handoff covered.</h2>
+          <p>The platform follows the work in the same sequence your team does—without forcing the record into disconnected tools.</p>
+        </div>
+        <div className="process-grid">
+          <article><span>01</span><h3>Set up the foundation.</h3><p>Create the organization, site, memberships and controlled workspace.</p><div className="mock-panel"><b>ABC Pharma</b><small>CAIRO QC LAB · OWNER</small><i>Workspace ready</i></div></article>
+          <article><span>02</span><h3>Run the study.</h3><p>Connect product, batch, protocol, timepoints, samples and chamber activity.</p><div className="mock-panel"><b>AMX-250 / STB-024</b><small>06M · 25°C / 60% RH</small><i>On track</i></div></article>
+          <article><span>03</span><h3>Review the result.</h3><p>Move records through controlled review, approval and correction states.</p><div className="mock-panel"><b>Result #02491</b><small>SUBMITTED · QA REVIEW</small><i>Awaiting review</i></div></article>
+          <article><span>04</span><h3>Preserve the evidence.</h3><p>Keep audit events, signatures and quality investigations attached to the work.</p><div className="mock-panel"><b>Evidence trail</b><small>RESULT → REVIEW → APPROVAL</small><i>Traceable</i></div></article>
+        </div>
+      </section>
+
       <section id="security" className="control-section">
         <div className="control-icon"><ShieldCheck size={24} /></div>
         <div>
@@ -124,6 +140,16 @@ export default function Landing() {
           <span><FlaskConical size={15} /> Stability workflows</span>
           <span><ShieldCheck size={15} /> Tenant isolation</span>
           <span><FileCheck2 size={15} /> Audit evidence</span>
+        </div>
+      </section>
+
+      <section className="faq-section">
+        <div className="section-heading"><span className="eyebrow">GOOD QUESTIONS</span><h2>What should a quality platform make obvious?</h2></div>
+        <div className="faq-list">
+          <details open><summary>Who owns the authorization decision?</summary><p>Django is authoritative for authentication, tenant isolation, roles and entitlements. The frontend does not decide whether a user is allowed to access a record.</p></details>
+          <details><summary>Can one organization see another organization's records?</summary><p>The tenant model is designed around organization boundaries, site-scoped memberships and backend-enforced access checks.</p></details>
+          <details><summary>Is QCSTS a GxP certification?</summary><p>No. QCSTS is designed for GxP-regulated environments with a validation-ready architecture; deployment, validation and procedural controls remain the customer's responsibility.</p></details>
+          <details><summary>What happens when a result needs correction?</summary><p>The workflow keeps review and correction context attached to the controlled record rather than silently overwriting the history.</p></details>
         </div>
       </section>
 
