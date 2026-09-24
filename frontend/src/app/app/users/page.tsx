@@ -12,11 +12,12 @@ export default function Users() {
   const [loading,setLoading]=useState(true);
   const [open,setOpen]=useState(false);
   const [editing,setEditing]=useState<User|null>(null);
-  const { sites } = useAuth();
+  const { sites, user } = useAuth();
+  const canManageMembers = String(user?.organization_role || "").toLowerCase() === "admin";
   const [form,setForm]=useState({email:"",full_name:"",role:"viewer",password:"",site_id:""});
 
   const load=async()=>{setLoading(true);setError("");try{const r=await api<ApiEnvelope<User[]>>(endpoints.users);setUsers(r.data||[])}catch(e){setError(e instanceof Error?e.message:"Unable to load members.")}finally{setLoading(false)}};
-  useEffect(()=>{void load()},[]);
+  useEffect(()=>{if(canManageMembers) void load(); else setLoading(false)},[canManageMembers]);
 
   const create=async(e:React.FormEvent)=>{e.preventDefault();setError("");try{await api(endpoints.users,{method:"POST",body:JSON.stringify(form)});setForm({email:"",full_name:"",role:"viewer",password:"",site_id:""});setOpen(false);await load()}catch(x){setError(x instanceof Error?x.message:"Unable to create member.")}};
   const edit=async(e:React.FormEvent)=>{e.preventDefault();if(!editing)return;setError("");try{await api(endpoints.user(editing.id),{method:"PATCH",body:JSON.stringify({full_name:form.full_name,site_id:form.site_id||undefined})});setEditing(null);setForm({email:"",full_name:"",role:"viewer",password:"",site_id:""});await load()}catch(x){setError(x instanceof Error?x.message:"Unable to update member.")}};

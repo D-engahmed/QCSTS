@@ -65,7 +65,7 @@ select {
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--line);
-
+  background: #fff;
   color: var(--ink);
   border-radius: 8px;
   padding: 9px 13px;
@@ -230,6 +230,7 @@ select {
   gap: 14px;
 }
 .feature-card {
+  background: #fff;
   border: 1px solid var(--line);
   padding: 22px;
   border-radius: 12px;
@@ -391,11 +392,10 @@ select {
   color: #dbe8e7;
   position: fixed;
   inset: 0 auto 0 0;
-  padding: 22px 14px 0;
+  padding: 22px 14px;
   display: flex;
   flex-direction: column;
   z-index: 20;
-  overflow: hidden;
 }
 .sidebar .brand small {
   color: #94aaa9;
@@ -425,12 +425,6 @@ select {
 }
 .tenant-selects select option {
   color: #111;
-}
-nav {
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  scrollbar-width: thin;
 }
 .nav-group {
   margin: 15px 0;
@@ -515,7 +509,7 @@ nav {
 .global-search kbd {
   font-size: 9px;
   border: 1px solid var(--line);
-
+  background: #fff;
   border-radius: 4px;
   padding: 3px 5px;
 }
@@ -670,11 +664,11 @@ nav {
   color: #52636c;
 }
 .status.active {
-  background: #44c8ab;
+  background: #e6f4f1;
   color: var(--brand2);
 }
 .status.critical {
-  background: #716463;
+  background: #fff0ef;
   color: var(--danger);
 }
 .table-card {
@@ -1216,7 +1210,7 @@ a:focus-visible {
   border-radius: 8px;
   padding: 11px 12px;
   outline: none;
-
+  background: #fff;
   color: var(--ink);
 }
 .field textarea {
