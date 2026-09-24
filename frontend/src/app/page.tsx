@@ -1,121 +1,140 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, FileCheck2, FlaskConical, ShieldCheck, Users, Workflow, PlayCircle } from "lucide-react";
+import { ArrowDownRight, ArrowRight, CheckCircle2, FileCheck2, FlaskConical, ShieldCheck } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import ProductExplainer from "@/components/ProductExplainer";
 
-const features = [
-  ["Controlled stability workflows", "Studies, protocols, timepoints, samples and results in one traceable lifecycle.", FlaskConical],
-  ["Tenant & role isolation", "Organization, site and membership boundaries are enforced by the platform.", Users],
-  ["Audit-ready operations", "Controlled records, approvals, signatures and audit evidence stay connected.", ShieldCheck],
-  ["Quality investigations", "Connect OOS/OOT, deviations and CAPA to the quality event lifecycle.", Workflow],
-] as const;
+const capabilities = [
+  ["01", "Stability, without the spreadsheet maze.", "Products, batches, protocols, timepoints, samples and results stay connected through one controlled workflow."],
+  ["02", "Quality evidence, where the work happens.", "Review, approvals, audit events and quality investigations remain attached to the records that created them."],
+  ["03", "One organization. Clear boundaries.", "Sites, memberships, roles and entitlements are isolated by the backend—not by assumptions in the UI."],
+];
 
-const workflow = ["Organization", "Product", "Study", "Timepoint", "Result", "Review"];
+const lifecycle = ["Organization", "Product", "Study", "Timepoint", "Result", "Review"];
 
 export default function Landing() {
   return (
-    <main className="landing">
+    <main className="landing anytime-inspired">
       <header className="landing-nav">
         <Link className="brand" href="/">
           <div className="brand-mark">Q</div>
           <div><strong>QCSTS</strong><small>Quality & Stability</small></div>
         </Link>
 
-        <nav>
-          <a href="#platform">Platform</a>
-          <a href="#workflow">Workflow</a>
-          <a href="#security">Security</a>
+        <nav aria-label="Primary">
+          <a href="#watch">Product</a>
+          <a href="#workflow">How it works</a>
+          <a href="#security">Control</a>
         </nav>
 
         <div className="landing-actions">
           <ThemeToggle />
-          <Link className="btn" href="/login">Sign in</Link>
+          <Link className="landing-signin" href="/login">Sign in</Link>
           <Link className="btn primary" href="/register">Create workspace <ArrowRight size={15} /></Link>
         </div>
       </header>
 
-      <section className="hero">
+      <section className="hero anytime-hero">
         <div className="hero-copy">
-          <div className="hero-badge"><span className="pulse-dot" /> Pharmaceutical quality operations</div>
-          <span className="eyebrow">QUALITY CONTROL · STABILITY · EVIDENCE</span>
-          <h1>Control the workflow. <span>Preserve the evidence.</span></h1>
-          <p>
-            QCSTS is a multi-tenant quality and stability management workspace for
-            pharmaceutical organizations and laboratories — from study setup to controlled review.
+          <span className="hero-kicker"><span className="pulse-dot" /> PHARMACEUTICAL QUALITY OPERATIONS</span>
+          <h1>Quality work.<br /><span>Controlled end to end.</span></h1>
+          <p className="hero-lede">
+            QCSTS gives pharmaceutical organizations and laboratories one connected workspace for quality control and stability testing—from setup to review, with the evidence preserved along the way.
           </p>
           <div className="hero-actions">
             <Link className="btn primary large" href="/register">Create your organization <ArrowRight size={16} /></Link>
-            <Link className="btn large" href="/login">Sign in</Link>
+            <a className="watch-link" href="#watch"><span className="watch-play">▶</span> See how QCSTS works</a>
           </div>
-          <div className="trust-row">
-            <span><CheckCircle2 size={15} /> Multi-tenant SaaS</span>
-            <span><CheckCircle2 size={15} /> Backend-enforced authorization</span>
-            <span><CheckCircle2 size={15} /> Validation-ready architecture</span>
+          <div className="hero-proof">
+            <span><CheckCircle2 size={14} /> Multi-tenant by design</span>
+            <span><CheckCircle2 size={14} /> Backend-enforced access</span>
+            <span><CheckCircle2 size={14} /> Validation-ready architecture</span>
           </div>
-          <ProductExplainer />
         </div>
 
-        <div className="hero-visual" aria-label="QCSTS product preview">
-          <div className="orb orb-a" /><div className="orb orb-b" />
-          <div className="dashboard-preview">
-            <div className="preview-header"><div><small>QCSTS WORKSPACE</small><strong>Stability overview</strong></div><span className="status active">Live</span></div>
-            <div className="preview-stats">
-              <div><span>Active studies</span><strong>24</strong><small>Across 3 sites</small></div>
-              <div><span>Pending review</span><strong>08</strong><small>Awaiting action</small></div>
-              <div><span>Quality events</span><strong>03</strong><small>Tracked to closure</small></div>
+        <div className="hero-visual" aria-label="QCSTS stability workspace preview">
+          <div className="hero-visual-label">A LOOK AT WHAT COMES NEXT</div>
+          <div className="product-window">
+            <div className="product-window-top">
+              <span>QCSTS</span><span className="window-status">● LIVE WORKSPACE</span>
             </div>
-            <div className="preview-card">
-              <div className="preview-card-head"><span>Stability execution</span><small>Current cycle</small></div>
-              <div className="preview-line"><span>AMX-250 / STB-024</span><b>On track</b></div>
-              <div className="progress"><i /></div>
-              <div className="preview-flow">{workflow.slice(1, 6).map((item, index) => <span key={item} className={index < 3 ? "done" : ""}>{item}</span>)}</div>
+            <div className="product-window-title">
+              <div><small>STABILITY OVERVIEW</small><strong>Current studies</strong></div>
+              <span>3 sites · 24 active</span>
             </div>
-            <div className="preview-audit"><FileCheck2 size={17} /><div><strong>Evidence trail connected</strong><span>Result → review → approval → audit event</span></div></div>
+            <div className="preview-calendar">
+              {["MON", "TUE", "WED", "THU", "FRI"].map((day) => <span key={day}>{day}</span>)}
+              <div className="calendar-line"><b>AMX-250</b><i>Timepoint 06M</i><em>Under review</em></div>
+              <div className="calendar-line"><b>PAR-100</b><i>Timepoint 03M</i><em>On track</em></div>
+              <div className="calendar-line"><b>MET-500</b><i>Timepoint 12M</i><em>Approved</em></div>
+            </div>
+            <div className="product-evidence"><FileCheck2 size={16} /><div><strong>Evidence trail connected</strong><span>Result → review → approval → audit event</span></div><ArrowRight size={15} /></div>
           </div>
         </div>
       </section>
 
-      <section id="platform" className="landing-section">
-        <div className="section-heading">
-          <span className="eyebrow">ONE SYSTEM, ONE TRACEABLE FLOW</span>
-          <h2>Designed for the work your QC team actually has to control.</h2>
-          <p>Less reconstruction from spreadsheets. More connected records, ownership and review context.</p>
+      <section id="watch" className="watch-section">
+        <div className="section-heading centered">
+          <span className="eyebrow">FROM FIRST RECORD TO CONTROLLED DECISION</span>
+          <h2>One workflow. No reconstruction later.</h2>
+          <p>QCSTS is built around the actual chain of work, so context does not disappear between systems, spreadsheets and approvals.</p>
         </div>
-        <div className="feature-grid">
-          {features.map(([title, copy, Icon]) => (
-            <article className="feature-card" key={title}>
-              <div className="feature-icon"><Icon size={19} /></div>
-              <h3>{title}</h3><p>{copy}</p><span className="feature-arrow">Explore capability <ArrowRight size={14} /></span>
+        <ProductExplainer />
+      </section>
+
+      <section id="workflow" className="capability-section">
+        <div className="section-heading">
+          <span className="eyebrow">THE OPERATING MODEL</span>
+          <h2>We run the record.<br /><span>You keep the decision.</span></h2>
+        </div>
+        <div className="capability-list">
+          {capabilities.map(([number, title, copy]) => (
+            <article className="capability-row" key={number}>
+              <span className="capability-number">{number}</span>
+              <div><h3>{title}</h3><p>{copy}</p></div>
+              <ArrowDownRight size={20} />
             </article>
           ))}
         </div>
       </section>
 
-      <section id="workflow" className="workflow-section">
+      <section className="lifecycle-section">
         <div className="section-heading centered">
           <span className="eyebrow">CONTROLLED LIFECYCLE</span>
-          <h2>Follow the record from setup to decision.</h2>
-          <p>Each stage remains connected instead of becoming another isolated spreadsheet.</p>
+          <h2>Every handoff stays visible.</h2>
         </div>
         <div className="lifecycle">
-          {workflow.map((item, index) => (
+          {lifecycle.map((item, index) => (
             <div className="lifecycle-item" key={item}>
               <div className="lifecycle-node">{String(index + 1).padStart(2, "0")}</div>
               <strong>{item}</strong>
-              {index < workflow.length - 1 && <span className="lifecycle-line" />}
+              {index < lifecycle.length - 1 && <span className="lifecycle-line" />}
             </div>
           ))}
         </div>
       </section>
 
-      <section className="explain-band">
-        <div><span className="eyebrow">SEE THE PRODUCT</span><h2>Understand the operating model before you create a workspace.</h2><p>Use the guided walkthrough to see how QCSTS connects organization, stability execution, review and evidence.</p></div>
-        <ProductExplainer />
+      <section id="security" className="control-section">
+        <div className="control-icon"><ShieldCheck size={24} /></div>
+        <div>
+          <span className="eyebrow">CONTROL IS A SYSTEM PROPERTY</span>
+          <h2>Security is enforced by the backend—not painted onto the interface.</h2>
+          <p>Organization isolation, site boundaries, roles, entitlements and controlled records are authoritative in Django. The frontend only exposes the context the current user is allowed to access.</p>
+        </div>
+        <div className="control-points">
+          <span><FlaskConical size={15} /> Stability workflows</span>
+          <span><ShieldCheck size={15} /> Tenant isolation</span>
+          <span><FileCheck2 size={15} /> Audit evidence</span>
+        </div>
       </section>
 
-      <section id="security" className="security-band">
-        <ShieldCheck size={22} />
-        <div><strong>Security is enforced by the backend, not the UI.</strong><span>Django remains the authorization authority while the frontend presents only the context the current user is allowed to access.</span></div>
+      <section className="final-cta">
+        <span className="eyebrow">READY WHEN YOUR QC TEAM IS</span>
+        <h2>Bring quality work into one controlled flow.</h2>
+        <p>Create an organization workspace and start building the operating record your team can actually trust.</p>
+        <div className="hero-actions">
+          <Link className="btn primary large" href="/register">Create your organization <ArrowRight size={16} /></Link>
+          <Link className="btn large" href="/login">Sign in</Link>
+        </div>
       </section>
 
       <footer className="landing-footer">
